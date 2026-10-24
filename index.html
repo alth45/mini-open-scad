@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>Mini OpenSCAD</title>
+</head>
+
+<body>
+
+    <div id="topbar">
+        <div id="brand">
+            <div class="logo"></div><span class="name">Mini OpenSCAD</span>
+        </div>
+        <button id="btnUndo" title="Undo (Ctrl+Z)" disabled>↶ <span class="lbl">Undo</span></button>
+        <button id="btnRedo" title="Redo (Ctrl+Y)" disabled>↷ <span class="lbl">Redo</span></button>
+        <button id="btnParams" title="Toggle parameter panel">⚙ <span class="lbl">Params</span></button>
+        <button id="btnRender" class="primary" title="Render (Ctrl+Enter)">▶ <span class="lbl">Render</span></button>
+        <button id="btnExport" title="Export STL">⬇ <span class="lbl">Export STL</span></button>
+        <select id="presetSelect" title="Presets">
+            <option value="">— Presets —</option>
+        </select>
+        <button id="btnClear" title="Kosongkan editor">✕ <span class="lbl">Clear</span></button>
+        <div class="spacer"></div>
+        <button id="btnAutoRender" class="toggle-on" title="Auto-render saat idle">⚡ <span
+                class="lbl">Auto</span></button>
+        <div id="statusWrap">
+            <div id="statusDot" class="dot ready"></div><span id="statusText">Ready</span>
+        </div>
+    </div>
+
+    <div id="tabbar">
+        <button data-tab="code" class="active">Code</button>
+        <button data-tab="3d">3D</button>
+        <button data-tab="console">Console</button>
+    </div>
+
+    <div id="main" data-tab="code">
+        <section id="left">
+            <div id="editorWrap">
+                <div id="gutter">1</div>
+                <div id="codeArea">
+                    <pre id="highlight" aria-hidden="true"></pre>
+                    <textarea id="editor" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"
+                        wrap="off"></textarea>
+                </div>
+            </div>
+            <div id="consolePanel">
+                <div id="consoleHead">
+                    <span style="cursor:pointer" id="consoleToggle">▾ Console</span>
+                    <span class="badge" id="consoleBadge">0</span>
+                    <div class="spacer"></div>
+                    <span style="cursor:pointer;color:#666" id="consoleClear">clear</span>
+                </div>
+                <div id="consoleBody"></div>
+            </div>
+        </section>
+        <section id="right">
+            <div id="viewport"></div>
+            <div id="viewportOverlay">
+                <button id="btnWireframe" title="Toggle wireframe">◇ Wireframe</button>
+                <button id="btnGrid" class="toggle-on" title="Toggle grid">▦ Grid</button>
+                <button id="btnReset" title="Reset view">⟲ Reset view</button>
+            </div>
+            <div id="viewInfo">—</div>
+            <div id="fps">– fps</div>
+            <div id="paramsPanel" class="hidden">
+                <div id="paramsHead">
+                    <span id="paramsTitle">⚙ Parameters</span>
+                    <div class="spacer"></div>
+                    <button id="paramsReset" title="Reset ke default">↺</button>
+                    <button id="paramsClose" title="Close">✕</button>
+                </div>
+                <div id="paramsBody"></div>
+            </div>
+        </section>
+    </div>
+
+    <div id="toast"></div>
+
+    <script type="module" src="./src/main.js"></script>
+</body>
+
+</html>
