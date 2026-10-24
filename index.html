@@ -19,6 +19,8 @@
         <button id="btnRender" class="primary" title="Render (Ctrl+Enter)">▶ <span class="lbl">Render</span></button>
         <button id="btnExport" title="Export STL">⬇ <span class="lbl">Export STL</span></button>
         <button id="btnShare" title="Share via URL">🔗 <span class="lbl">Share</span></button>
+        <button id="btnPng" title="Screenshot PNG (2×)">📷 <span class="lbl">PNG</span></button>
+        <button id="btnGif" title="Turntable GIF">🎞 <span class="lbl">GIF</span></button>
         <select id="presetSelect" title="Presets">
             <option value="">— Presets —</option>
         </select>
@@ -103,6 +105,49 @@
             </div>
         </div>
     </div>
+
+    <!--Modal Gif-->
+    <div id="gifModal" class="modal-backdrop hidden">
+        <div class="modal">
+            <div class="modal-title">
+                <span>🎞 Turntable GIF</span>
+                <button id="gifClose" class="modal-x">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="gif-option">
+                    <label class="gif-label">Quality</label>
+                    <div class="gif-quality-group">
+                        <label><input type="radio" name="gifQuality" value="small"> Small · 24f · 320px</label>
+                        <label><input type="radio" name="gifQuality" value="medium" checked> Medium · 36f ·
+                            480px</label>
+                        <label><input type="radio" name="gifQuality" value="large"> Large · 60f · 640px</label>
+                    </div>
+                </div>
+
+                <div class="gif-option">
+                    <label class="gif-label">Frame delay</label>
+                    <div class="param-slider-wrap">
+                        <input type="range" id="gifDelay" min="30" max="120" value="50" step="10">
+                        <span id="gifDelayLabel" class="param-num">50ms</span>
+                    </div>
+                </div>
+
+                <div id="gifProgressWrap" class="gif-progress-wrap hidden">
+                    <div class="gif-progress-bar">
+                        <div id="gifProgressFill" class="gif-progress-fill"></div>
+                    </div>
+                    <div id="gifStatus" class="gif-status">Preparing…</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="gifCancel" disabled>Cancel</button>
+                <button id="gifStart" class="primary">▶ Start</button>
+            </div>
+        </div>
+    </div>
+
+    <!--CHEATSHEET MODAL-->
+    <div id="cheatModal" class="modal-backdrop hidden"></div>
 
     <script type="module" src="./src/main.js"></script>
 </body>

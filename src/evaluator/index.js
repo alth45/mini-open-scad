@@ -3,6 +3,7 @@ import { CONFIG } from '../config.js';
 import { Scope, findChildrenContext } from '../core/scope.js';
 import { makeBuiltins } from './builtins.js';
 import { BUILTIN_FUNCTIONS } from './functions.js';
+import { suggestName } from '../utils/suggest.js';
 // import { Scope } from '../core/scope.js';
 
 /* ---------- EvalContext ---------- */
@@ -66,7 +67,21 @@ export function evalExpr(node, scope, ctx) {
                 return cc ? cc.children.length : 0;
             }
             const v = scope.get(node.name);
-            if (v === undefined) throw new SCADError(`Variabel tidak dikenal: '${node.name}'`, node.line);
+            if (v === undefined) {
+                const candidates = scope.collectVarNames();
+                candidates.add('PI');
+                candidates.add('$fn');
+                candidates.add('$children');
+                const sug = suggestName(node.name, candidates);
+                throw new SCADError(
+                    `Variabel tidak dikenal: '${node.name}'`,
+                    node.line,
+                    node.col,
+                    sug ? `Mungkin maksud Anda: '${sug}'` : null
+                );
+            }
+            return v;
+
             return v;
         }
 
@@ -224,11 +239,33 @@ function evalCall(node, scope, ctx) {
     }
 
     const fn = BUILTIN_FUNCTIONS[node.name];
-    if (!fn) throw new SCADError(`Function tidak dikenal: '${node.name}'`, node.line);
+    if (!fn) {
+        const candidates = new Set(Object.keys(BUILTIN_FUNCTIONS));
+        scope.collectFuncNames(candidates);
+        const sug = suggestName(node.name, candidates);
+        throw new SCADError(
+            `Function tidak dikenal: '${node.name}'`,
+            node.line,
+            node.col,
+            sug ? `Mungkin maksud Anda: '${sug}'` : null
+        );
+    }
     return fn(...args.pos.map(n => evalExpr(n, scope, ctx)));
 }
 
 function bindParams(params, args, targetScope, callerScope, ctx) {
+    /* Warn named arg yang tidak cocok dengan parameter */
+    if (args.named && params.length > 0) {
+        const paramNames = new Set(params.map(p => p.name));
+        for (const k in args.named) {
+            if (!paramNames.has(k)) {
+                const sug = suggestName(k, paramNames);
+                if (sug) {
+                    ctx.warn(`Parameter '${k}' tidak dikenal (mungkin maksud: '${sug}')`);
+                }
+            }
+        }
+    }
     let posIndex = 0;
     for (const p of params) {
         if (args.named[p.name] !== undefined) {
@@ -323,7 +360,16 @@ export function evalStatement(st, scope, ctx) {
                 return evalStatements(userMod.body, modScope, ctx);
             }
 
-            throw new SCADError(`Module tidak dikenal: '${st.name}'`, st.line);
+            // throw new SCADError(`Module tidak dikenal: '${st.name}'`, st.line);
+            const candidates = new Set(Object.keys(BUILTINS));
+            scope.collectModuleNames(candidates);
+            const sug = suggestName(st.name, candidates);
+            throw new SCADError(
+                `Module tidak dikenal: '${st.name}'`,
+                st.line,
+                st.col,
+                sug ? `Mungkin maksud Anda: '${sug}'` : null
+            );
         }
 
         default:

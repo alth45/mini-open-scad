@@ -175,4 +175,123 @@ export class Viewer {
         this.grid.visible = !this.grid.visible;
         return this.grid.visible;
     }
+
+    /* ============================================================
+   Capture
+   ============================================================ */
+
+    /** PNG screenshot di resolusi = viewport × scale (cap 4096). */
+    captureScreenshot(scale = 2) {
+        const w = Math.min(Math.round(this.container.clientWidth * scale), 4096);
+        const h = Math.min(Math.round(this.container.clientHeight * scale), 4096);
+        if (w < 1 || h < 1) throw new Error('Viewport kosong');
+
+        const offscreen = this._createOffscreen(w, h);
+        const oldAspect = this.camera.aspect;
+        const oldFov = this.camera.fov;
+
+        this.camera.aspect = w / h;
+        this.camera.fov = this._fovForAspect(oldFov, oldAspect, this.camera.aspect);
+        this.camera.updateProjectionMatrix();
+
+        try {
+            offscreen.render(this.scene, this.camera);
+            return offscreen.domElement.toDataURL('image/png');
+        } finally {
+            this.camera.aspect = oldAspect;
+            this.camera.fov = oldFov;
+            this.camera.updateProjectionMatrix();
+            this._destroyOffscreen(offscreen);
+        }
+    }
+
+    /**
+     * Iterasi turntable: panggil onFrame(ImageData, index, total) untuk tiap frame.
+     * Kamera diputar 360° mengelilingi sumbu Z (up), elevasi & jarak dipertahankan.
+     *
+     * @param {{frames?:number, size?:number, signal?:AbortSignal}} opts
+     * @param {(imageData:ImageData, i:number, total:number)=>void|Promise<void>} onFrame
+     */
+    async iterateTurntable({ frames = 36, size = 480, signal } = {}, onFrame) {
+        const w = Math.min(size, 2048);
+        const h = w;
+
+        const offscreen = this._createOffscreen(w, h);
+
+        const oldAspect = this.camera.aspect;
+        const oldFov = this.camera.fov;
+        const savedPos = this.camera.position.clone();
+        const target = this.controls.target.clone();
+        const camRel = savedPos.clone().sub(target);
+
+        this.camera.aspect = 1;
+        this.camera.fov = this._fovForAspect(oldFov, oldAspect, 1);
+        this.camera.updateProjectionMatrix();
+
+        const canvas2D = document.createElement('canvas');
+        canvas2D.width = w;
+        canvas2D.height = h;
+        const ctx2d = canvas2D.getContext('2d', { willReadFrequently: true });
+
+        try {
+            for (let i = 0; i < frames; i++) {
+                if (signal?.aborted) throw new Error('Cancelled');
+
+                const angle = (Math.PI * 2 * i) / frames;
+                const c = Math.cos(angle);
+                const s = Math.sin(angle);
+
+                /* rotasi camRel terhadap sumbu Z */
+                this.camera.position.set(
+                    target.x + camRel.x * c - camRel.y * s,
+                    target.y + camRel.x * s + camRel.y * c,
+                    target.z + camRel.z
+                );
+                this.camera.lookAt(target);
+
+                offscreen.render(this.scene, this.camera);
+                ctx2d.clearRect(0, 0, w, h);
+                ctx2d.drawImage(offscreen.domElement, 0, 0, w, h);
+                const imageData = ctx2d.getImageData(0, 0, w, h);
+
+                await onFrame(imageData, i, frames);
+                await new Promise(r => setTimeout(r, 0));   // yield
+            }
+        } finally {
+            this.camera.position.copy(savedPos);
+            this.camera.aspect = oldAspect;
+            this.camera.fov = oldFov;
+            this.camera.updateProjectionMatrix();
+            this.controls.target.copy(target);
+            this.controls.update();
+            this._destroyOffscreen(offscreen);
+        }
+    }
+
+    /* --- internal --- */
+
+    _createOffscreen(w, h) {
+        const r = new THREE.WebGLRenderer({
+            antialias: true,
+            preserveDrawingBuffer: true,
+            alpha: false
+        });
+        r.setPixelRatio(1);
+        r.setSize(w, h, false);
+        r.setClearColor(0x1e1e1e, 1);
+        return r;
+    }
+
+    _destroyOffscreen(r) {
+        r.dispose();
+        if (typeof r.forceContextLoss === 'function') r.forceContextLoss();
+        r.domElement.remove();
+    }
+
+    /** FOV vertikal baru agar horizontal FOV tetap sama saat aspect berubah. */
+    _fovForAspect(oldFov, oldAspect, newAspect) {
+        const oldVHalf = (oldFov * Math.PI) / 360;          // half vertical rad
+        const tanNew = Math.tan(oldVHalf) * oldAspect / newAspect;
+        return 2 * Math.atan(tanNew) * 180 / Math.PI;
+    }
 }

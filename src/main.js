@@ -16,6 +16,9 @@ import { createWorkerClient } from './worker/worker-client.js';
 import { TabManager, createTab } from './tabs.js';
 import { createTabBar } from './ui/tabbar.js';
 import { encodeShareTab, buildShareUrl, readShareFromUrl } from './share.js';
+import { downloadDataUrl, downloadBlob, timestampForFile } from './utils.js';
+import { createGifEncoder } from './gif.js';
+import { createCheatSheet } from './ui/cheatsheet.js';
 
 /* ============================================================
    Viewer
@@ -301,6 +304,136 @@ document.getElementById('shareOpen').addEventListener('click', () => {
 });
 
 /* ============================================================
+   Cheat Sheet
+   ============================================================ */
+const cheatSheet = createCheatSheet(document.getElementById('cheatModal'));
+
+/* ============================================================
+   Capture: PNG + GIF
+   ============================================================ */
+document.getElementById('btnPng').addEventListener('click', () => {
+    try {
+        const dataUrl = viewer.captureScreenshot(2);
+        downloadDataUrl(dataUrl, `screenshot-${timestampForFile()}.png`);
+        toast('📷 PNG saved');
+    } catch (e) {
+        log('error', 'Screenshot gagal: ' + e.message);
+        toast('✖ Screenshot gagal');
+    }
+});
+
+const gifModal = document.getElementById('gifModal');
+const gifDelay = document.getElementById('gifDelay');
+const gifDelayLbl = document.getElementById('gifDelayLabel');
+const gifProgressWrap = document.getElementById('gifProgressWrap');
+const gifProgressFill = document.getElementById('gifProgressFill');
+const gifStatus = document.getElementById('gifStatus');
+const gifStart = document.getElementById('gifStart');
+const gifCancel = document.getElementById('gifCancel');
+
+let gifController = null;
+
+gifDelay.addEventListener('input', () => {
+    gifDelayLbl.textContent = gifDelay.value + 'ms';
+});
+
+document.getElementById('btnGif').addEventListener('click', () => {
+    gifModal.classList.remove('hidden');
+    gifProgressWrap.classList.add('hidden');
+    gifProgressFill.style.width = '0%';
+    gifStatus.textContent = 'Preparing…';
+    gifStart.disabled = false;
+    gifCancel.disabled = true;
+});
+
+document.getElementById('gifClose').addEventListener('click', () => {
+    if (gifController) gifController.abort();
+    gifModal.classList.add('hidden');
+});
+gifModal.addEventListener('click', (e) => {
+    if (e.target === gifModal) {
+        if (gifController) gifController.abort();
+        gifModal.classList.add('hidden');
+    }
+});
+
+gifStart.addEventListener('click', async () => {
+    if (!viewer.hasModel()) {
+        toast('⚠ Render model dulu');
+        return;
+    }
+
+    const qualityEl = document.querySelector('input[name="gifQuality"]:checked');
+    const quality = qualityEl?.value || 'medium';
+    const qualityMap = {
+        small: { frames: 24, size: 320 },
+        medium: { frames: 36, size: 480 },
+        large: { frames: 60, size: 640 }
+    };
+    const { frames, size } = qualityMap[quality];
+    const delay = parseInt(gifDelay.value, 10) || 50;
+
+    gifStart.disabled = true;
+    gifCancel.disabled = false;
+    gifProgressWrap.classList.remove('hidden');
+    gifProgressFill.style.width = '0%';
+    gifStatus.textContent = `Rendering 0 / ${frames}…`;
+
+    gifController = new AbortController();
+    const controller = gifController;
+
+    try {
+        const gif = createGifEncoder();
+
+        await viewer.iterateTurntable(
+            { frames, size, signal: controller.signal },
+            (imageData, i, total) => {
+                gif.addFrame(imageData, { delay });
+                const pct = ((i + 1) / total) * 90;
+                gifProgressFill.style.width = pct + '%';
+                gifStatus.textContent = `Rendering ${i + 1} / ${total}…`;
+            }
+        );
+
+        gifStatus.textContent = 'Encoding GIF…';
+        gifProgressFill.style.width = '95%';
+        await new Promise(r => setTimeout(r, 20));
+
+        const bytes = gif.finish();
+        const blob = new Blob([bytes], { type: 'image/gif' });
+        downloadBlob(blob, `turntable-${timestampForFile()}.gif`);
+
+        gifProgressFill.style.width = '100%';
+        gifStatus.textContent = `Done · ${(blob.size / 1024).toFixed(0)} KB`;
+        log('ok', `GIF saved: ${(blob.size / 1024).toFixed(0)} KB, ${frames} frames`);
+        toast('🎞 GIF saved');
+
+        setTimeout(() => gifModal.classList.add('hidden'), 800);
+    } catch (e) {
+        if (e.message === 'Cancelled') {
+            gifStatus.textContent = 'Cancelled';
+            toast('Cancelled');
+        } else {
+            console.error('[gif]', e);
+            gifStatus.textContent = 'Error: ' + e.message;
+            log('error', 'GIF gagal: ' + e.message);
+            toast('✖ GIF gagal');
+        }
+    } finally {
+        gifController = null;
+        gifStart.disabled = false;
+        gifCancel.disabled = true;
+    }
+});
+
+gifCancel.addEventListener('click', () => {
+    if (gifController) {
+        gifController.abort();
+        gifStatus.textContent = 'Cancelling…';
+    }
+});
+
+/* ============================================================
    Buttons
    ============================================================ */
 const btnAuto = document.getElementById('btnAutoRender');
@@ -371,6 +504,22 @@ document.querySelectorAll('#tabbar button[data-tab]').forEach(b => {
    Shortcuts
    ============================================================ */
 window.addEventListener('keydown', e => {
+    const inField = e.target.matches('input, textarea, select, [contenteditable]');
+
+    /* ? → toggle cheat sheet (hanya jika tidak di field) */
+    if (e.key === '?' && !inField) {
+        e.preventDefault();
+        cheatSheet.toggle();
+        return;
+    }
+
+    /* Esc → tutup cheat sheet / modal lain yang terbuka */
+    if (e.key === 'Escape') {
+        if (cheatSheet.isOpen()) { cheatSheet.close(); return; }
+        // modal lain di-handle masing-masing; biarkan event bubble
+    }
+
+    /* Ctrl+Enter → render */
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         doRender();

@@ -21,6 +21,18 @@ export class Parser {
     expect(v, msg) { if (!this.isOp(v)) this.error(msg || `Diharapkan '${v}'`); return this.advance(); }
     error(msg, tok) { const t = tok || this.cur; throw new SCADError(msg, t.line, t.col); }
 
+    checkClose(openTok, closeSym) {
+        if (!this.isOp(closeSym)) {
+            throw new SCADError(
+                `Diharapkan '${closeSym}'`,
+                this.cur.line,
+                this.cur.col,
+                `'${openTok.value}' dibuka di baris ${openTok.line} belum ditutup`
+            );
+        }
+        this.advance();
+    }
+
     parseProgram() {
         const body = [];
         while (this.cur.type !== 'eof') body.push(this.parseStatement());
@@ -29,10 +41,10 @@ export class Parser {
 
     parseBody() {
         if (this.isOp('{')) {
-            this.advance();
+            const openTok = this.advance();
             const body = [];
             while (!this.isOp('}') && this.cur.type !== 'eof') body.push(this.parseStatement());
-            this.expect('}', "Diharapkan '}'");
+            this.checkClose(openTok, '}');
             return body;
         }
         return [this.parseStatement()];
@@ -49,10 +61,10 @@ export class Parser {
         if (this.isOp(';')) { this.advance(); return { type: 'Empty', line: startTok.line }; }
 
         if (this.isOp('{')) {
-            this.advance();
+            const openTok = this.advance();
             const body = [];
             while (!this.isOp('}') && this.cur.type !== 'eof') body.push(this.parseStatement());
-            this.expect('}', "Diharapkan '}'");
+            this.checkClose(openTok, '}');
             return { type: 'Block', body, modifier, line: startTok.line };
         }
 
@@ -116,9 +128,9 @@ export class Parser {
 
             if (this.isOp('(', 1)) {
                 const name = this.advance().value;
-                this.advance();
+                const openTok = this.advance();
                 const args = this.parseArgs();
-                this.expect(')', "Diharapkan ')'");
+                this.checkClose(openTok, ')');
                 let children = [];
                 if (this.isOp(';')) { this.advance(); }
                 else children = this.parseBody();
@@ -202,29 +214,28 @@ export class Parser {
 
             this.advance();
             if (this.isOp('(')) {
-                this.advance();
+                const openTok = this.advance();
                 const args = this.parseArgs();
-                this.expect(')', "Diharapkan ')'");
+                this.checkClose(openTok, ')');
                 return { type: 'Call', name: t.value, args, line: t.line };
             }
             return { type: 'Var', name: t.value, line: t.line };
         }
 
         if (this.isOp('(')) {
-            this.advance();
+            const openTok = this.advance();
             const e = this.parseExpression();
-            this.expect(')', "Diharapkan ')'");
+            this.checkClose(openTok, ')');
             return e;
         }
 
         if (this.isOp('[')) {
-            this.advance();
+            const openTok = this.advance();
             if (this.isOp(']')) { this.advance(); return { type: 'Vector', items: [] }; }
 
-            /* list comprehension? */
             if (this.isKw('for') || this.isKw('if')) {
                 const comp = this.isKw('for') ? this.parseComprehensionFor() : this.parseComprehensionIf();
-                this.expect(']', "Diharapkan ']'");
+                this.checkClose(openTok, ']');
                 return comp;
             }
 
@@ -235,7 +246,7 @@ export class Parser {
                 let step = null, end;
                 if (this.isOp(':')) { this.advance(); step = second; end = this.parseExpression(); }
                 else end = second;
-                this.expect(']', "Diharapkan ']' after range");
+                this.checkClose(openTok, ']');
                 return { type: 'Range', start: first, step, end, line: t.line };
             }
 
@@ -244,7 +255,7 @@ export class Parser {
                 if (this.isOp(']')) break;
                 items.push(this.parseExpression());
             }
-            this.expect(']', "Diharapkan ']' after list items");
+            this.checkClose(openTok, ']');
             return { type: 'Vector', items, line: t.line };
         }
 

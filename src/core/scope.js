@@ -22,6 +22,32 @@ export class Scope {
         while (s) { if (s.funcs.has(name)) return s.funcs.get(name); s = s.parent; }
         return null;
     }
+    collectVarNames(set = new Set()) {
+        let s = this;
+        while (s) {
+            for (const k of s.vars.keys()) set.add(k);
+            s = s.parent;
+        }
+        return set;
+    }
+
+    collectModuleNames(set = new Set()) {
+        let s = this;
+        while (s) {
+            for (const k of s.modules.keys()) set.add(k);
+            s = s.parent;
+        }
+        return set;
+    }
+
+    collectFuncNames(set = new Set()) {
+        let s = this;
+        while (s) {
+            for (const k of s.funcs.keys()) set.add(k);
+            s = s.parent;
+        }
+        return set;
+    }
 
 }
 

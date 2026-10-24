@@ -46,6 +46,7 @@ self.onmessage = (e) => {
         message: err?.message || String(err),
         line: err?.line || 0,
         col: err?.col || 0,
+        hint: err?.hint || null,
         isScad: err?.name === 'SCADError'
       }
     });
