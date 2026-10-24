@@ -72,17 +72,22 @@ export function createParamsPanel({ panelEl, bodyEl, titleEl, resetBtn, closeBtn
                 input.addEventListener('input', () => update(p.name, input.value));
                 return input;
 
-            case 'enum':
+            case 'enum': {
                 input = document.createElement('select');
-                for (const opt of p.options) {
+                const labels = p.optionLabels || p.options;
+                for (let i = 0; i < p.options.length; i++) {
                     const o = document.createElement('option');
-                    o.value = opt;
-                    o.textContent = opt;
-                    if (opt === v) o.selected = true;
+                    o.value = String(p.options[i]);
+                    o.textContent = String(labels[i] ?? p.options[i]);
+                    if (String(p.options[i]) === String(v)) o.selected = true;
                     input.appendChild(o);
                 }
-                input.addEventListener('change', () => update(p.name, input.value));
+                input.addEventListener('change', () => {
+                    const idx = p.options.findIndex(o => String(o) === input.value);
+                    update(p.name, idx >= 0 ? p.options[idx] : input.value);
+                });
                 return input;
+            }
         }
         return document.createTextNode('?');
     }
@@ -99,12 +104,31 @@ export function createParamsPanel({ panelEl, bodyEl, titleEl, resetBtn, closeBtn
             empty.className = 'params-empty';
             empty.innerHTML =
                 'Tidak ada parameter.<br>Tambah di kode:<br>' +
-                '<code>// @param size {slider 10 100 50} Size</code>';
+                '<code>// @param size {slider 10 100 50} Size</code><br>' +
+                'atau<br>' +
+                '<code>size = 50; // [10:100]</code>';
             bodyEl.appendChild(empty);
             return;
         }
+
+        /* Group params — preserve first-occurrence order */
+        const groups = new Map();
         for (const p of params) {
-            bodyEl.appendChild(row(p.label, buildControl(p)));
+            const g = p.group || '';
+            if (!groups.has(g)) groups.set(g, []);
+            groups.get(g).push(p);
+        }
+
+        for (const [groupName, groupParams] of groups) {
+            if (groupName) {
+                const h = document.createElement('div');
+                h.className = 'param-group';
+                h.textContent = groupName;
+                bodyEl.appendChild(h);
+            }
+            for (const p of groupParams) {
+                bodyEl.appendChild(row(p.label, buildControl(p)));
+            }
         }
     }
 

@@ -2105,3 +2105,19 @@ kbd {
     grid-template-columns: 80px 1fr 55px 35px 70px;
   }
 }
+
+/* ---------- PARAMS: GROUP HEADER ---------- */
+.param-group {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent-hi);
+  margin: 16px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.param-group:first-child {
+  margin-top: 0;
+}
