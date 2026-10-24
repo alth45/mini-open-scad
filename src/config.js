@@ -1,5 +1,8 @@
 export const CONFIG = {
-  defaultFn: 32,
+  defaultFn: 0,           // 0 = "auto" — pakai $fa/$fs
+  defaultFa: 12,          // maximum angle per segment (deg)
+  defaultFs: 2,           // minimum arc length per segment (mm)
+  fallbackFn: 32,         // dipakai saat $fa/$fs tidak applicable (no radius info)
   evalTimeoutMs: 2500,
   autoRenderDelay: 800,
   saveDelay: 500,

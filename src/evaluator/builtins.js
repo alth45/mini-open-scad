@@ -279,11 +279,50 @@ function collectPoints3D(obj) {
     return pts;
 }
 
-function getFnFor(args, scope) {
-    const v = (args.named && args.named.$fn !== undefined) ? args.named.$fn : scope.get('$fn');
-    const n = Number(v);
+/**
+ * Resolve segment count untuk satu primitive.
+ * Prioritas:
+ *   1. `$fn ≥ 3` (per-call atau scope) → pakai langsung
+ *   2. `$fa`/`$fs` auto-tessellation (jika radius tersedia)
+ *   3. `CONFIG.fallbackFn` (jika radius tidak diketahui)
+ *
+ * @param {object} args  - parsed args
+ * @param {Scope}  scope - eval scope
+ * @param {number|null} radius - reference radius untuk auto-tessellation
+ */
+function getFnFor(args, scope, radius = null) {
+    /* --- $fn explicit override --- */
+    const fnVal = (args.named && args.named.$fn !== undefined)
+        ? args.named.$fn
+        : scope.get('$fn');
+    const n = Number(fnVal);
     if (Number.isFinite(n) && n >= 3) return Math.min(Math.floor(n), 512);
-    return CONFIG.defaultFn;
+
+    /* --- auto-tessellation $fa/$fs (butuh radius) --- */
+    if (radius == null || !Number.isFinite(radius) || radius <= 0) {
+        return CONFIG.fallbackFn;
+    }
+
+    const faVal = (args.named && args.named.$fa !== undefined)
+        ? args.named.$fa
+        : scope.get('$fa');
+    const fsVal = (args.named && args.named.$fs !== undefined)
+        ? args.named.$fs
+        : scope.get('$fs');
+
+    const fa = Number(faVal);
+    const fs = Number(fsVal);
+
+    const faN = Number.isFinite(fa) && fa > 0 ? 360 / fa : Infinity;
+    const fsN = Number.isFinite(fs) && fs > 0 ? (radius * 2 * Math.PI) / fs : Infinity;
+
+    /* user set both to 0 → fallback */
+    if (!Number.isFinite(faN) && !Number.isFinite(fsN)) {
+        return CONFIG.fallbackFn;
+    }
+
+    const computed = Math.max(5, Math.min(faN, fsN));
+    return Math.min(512, Math.floor(computed));
 }
 
 function getArg(args, index, name, def) {
@@ -513,7 +552,7 @@ export function makeBuiltins(evalStatements) {
 
         sphere(a, node, scope) {
             const r = Math.abs(numArg(getArg(a, 0, 'r', 1), 1)) || 1e-6;
-            const fn = getFnFor(a, scope);
+            const fn = getFnFor(a, scope, r);
             const g = new THREE.SphereGeometry(r, fn, Math.max(2, Math.round(fn / 2)));
             return [makeMesh(g)];
         },
@@ -529,7 +568,7 @@ export function makeBuiltins(evalStatements) {
             if (r2 === undefined) r2 = r1;
             if (h === undefined) h = 1;
 
-            const fn = getFnFor(a, scope);
+            const fn = getFnFor(a, scope, Math.max(Math.abs(r1 || 0), Math.abs(r2 || 0)));   // ← pakai max radius
             const height = Math.max(Math.abs(numArg(h, 1)), 1e-6);
             const g = new THREE.CylinderGeometry(
                 Math.max(Math.abs(numArg(r2, 1)), 1e-6),
@@ -567,7 +606,7 @@ export function makeBuiltins(evalStatements) {
         /* ---------- PRIMITIVE 2D ---------- */
         circle(a, node, scope) {
             const r = Math.abs(numArg(getArg(a, 0, 'r', 1), 1)) || 1e-6;
-            const fn = getFnFor(a, scope);
+            const fn = getFnFor(a, scope, r);
             const n = Math.max(3, fn);
             const s = new THREE.Shape();
             const pts = [];
@@ -910,7 +949,6 @@ export function makeBuiltins(evalStatements) {
 
         rotate_extrude(a, node, scope, ctx) {
             const angle = numArg(getArg(a, 0, 'angle', 360), 360);
-            const fn = getFnFor(a, scope);
             const kids = evalStatements(node.children, scope, ctx);
 
             const shapes = [];
@@ -919,6 +957,15 @@ export function makeBuiltins(evalStatements) {
                 ctx.warn('rotate_extrude(): butuh child 2D (circle/square/polygon).');
                 return [];
             }
+
+            /* hitung reference radius — max |x| dari semua titik profile */
+            let maxR = 0;
+            for (const s of shapes) {
+                for (const p of shapePoints(s, 64)) {
+                    if (p.x > maxR) maxR = p.x;
+                }
+            }
+            const fn = getFnFor(a, scope, maxR);
 
             const meshes = [];
             for (const s of shapes) {

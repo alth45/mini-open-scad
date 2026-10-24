@@ -131,6 +131,10 @@ export class Parser {
                 const body = this.parseBody();
                 return { type: 'For', iterators, body, modifier, line: startTok.line };
             }
+            /* let(...) — statement context */
+            if (kw === 'let' && this.isOp('(', 1)) {
+                return this.parseLetStatement(modifier, startTok);
+            }
 
             if (this.isOp('=', 1)) {
                 const name = this.advance().value;
@@ -330,6 +334,28 @@ export class Parser {
         this.expect(')', "Diharapkan ')'");
         const body = this.parseExpression();
         return { type: 'Let', bindings, body, line: letTok.line };
+    }
+
+    /**
+ * Statement-context let: `let(a = e1, b = e2, ...) body`
+ * Body adalah statements (block atau single statement).
+ * Binding dievaluasi berurutan — `b` bisa referensi `a`.
+ */
+    parseLetStatement(modifier, startTok) {
+        this.advance();                                // 'let'
+        this.expect('(', "Diharapkan '('");
+        const bindings = [];
+        while (!this.isOp(')')) {
+            if (this.cur.type !== 'ident') this.error('let: diharapkan nama variabel');
+            const name = this.advance().value;
+            this.expect('=', "Diharapkan '=' pada binding let");
+            const value = this.parseExpression();
+            bindings.push({ name, value });
+            if (!this.eat(',')) break;
+        }
+        this.expect(')', "Diharapkan ')'");
+        const body = this.parseBody();
+        return { type: 'LetStatement', bindings, body, modifier, line: startTok.line };
     }
 
     parseComprehensionIf() {

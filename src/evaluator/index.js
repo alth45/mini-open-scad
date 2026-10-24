@@ -60,6 +60,8 @@ export class EvalContext {
 export function makeRootScope(initialVars) {
     const s = new Scope(null);
     s.set('$fn', CONFIG.defaultFn);
+    s.set('$fa', CONFIG.defaultFa);
+    s.set('$fs', CONFIG.defaultFs);
     if (initialVars) {
         for (const k in initialVars) {
             if (!k.startsWith('$')) s.set(k, initialVars[k]);
@@ -378,6 +380,14 @@ export function evalStatement(st, scope, ctx) {
 
         case 'Block': {
             return evalStatements(st.body, new Scope(scope), ctx);
+        }
+
+        case 'LetStatement': {
+            const inner = new Scope(scope);
+            for (const b of st.bindings) {                           // ← st saja
+                inner.set(b.name, evalExpr(b.value, inner, ctx));
+            }
+            return evalStatements(st.body, inner, ctx);
         }
 
         case 'If': {

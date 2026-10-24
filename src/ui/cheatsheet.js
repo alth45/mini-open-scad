@@ -93,7 +93,7 @@ const SYNTAX = [
       { name: 'List comprehension', code: '[for (i = [0 : 5]) i * 2]\n[for (i = [0 : 10]) if (i % 2 == 0) i]', desc: 'Generate array dengan loop' },
       { name: 'Range', code: '[0 : 10]       // 0, 1, ..., 10\n[0 : 2 : 10]   // 0, 2, ..., 10', desc: 'Range dengan step' },
       // { name: 'Ternary', code: 'x > 0 ? "pos" : "neg"', desc: 'Kondisional ekspresi' },
-      { name: 'let()', code: 'let(a = 10, b = a * 2) a + b   // 30\n[for (i = [0:5]) let(x = i * 2) x * x]', desc: 'Variabel lokal dalam ekspresi' },
+      { name: 'let()', code: '// expression\nx = let(a = 5, b = a * 2) a + b;   // 15\n\n// statement\nlet(w = 20, h = 10) {\n    cube([w, h, 5]);\n    translate([0, h, 0]) sphere(w / 4);\n}', desc: 'Variabel lokal — expression & statement' },
       { name: 'Vector ops', code: '[1, 2, 3] + 10   // [11, 12, 13]\n[1, 2, 3] * 2    // [2, 4, 6]', desc: 'Operasi elementwise' },
       { name: 'Ternary', code: 'x > 0 ? "positive" : "negative"\n$fn = $preview ? 24 : 96;', desc: 'Kondisional: (cond) ? then : else' },
       { name: '$preview', code: '// true saat edit (cepat)\n// false untuk export (final)\n$fn = $preview ? 24 : 96;', desc: 'Boolean otomatis — true di live editor' },
@@ -104,7 +104,8 @@ const SYNTAX = [
     items: [
       { name: '* (disable)', code: '*cube(10);   // disembunyikan', desc: 'Sembunyikan objek' },
       { name: '! (show only)', code: '!cube(10);  // hanya ini yang tampil', desc: 'Isolasi objek untuk debug' },
-      { name: '$fn', code: '$fn = 64;\nsphere(r = 5, $fn = 32);', desc: 'Jumlah segmen (smooth vs low-poly)' }
+      { name: '$fn', code: '$fn = 64;              // fixed segments\n$fn = 0;               // auto — pakai $fa/$fs\nsphere(r = 5, $fn = 32);  // override per-call', desc: 'Fixed segment count. 0 = auto' },
+      { name: '$fa / $fs', code: '$fa = 12;          // max angle per segment (deg)\n$fs = 2;           // min arc length (mm)\n// n = min(360/$fa, 2πr/$fs), clamp [5, 512]', desc: 'Auto-tessellation (default 12/2)' },
     ]
   },
   {
