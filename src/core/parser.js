@@ -33,6 +33,23 @@ export class Parser {
         this.advance();
     }
 
+    /**
+ * Parse daftar iterator for loop: `x = range1, y = range2, ...`
+ * Return array of { varName, iter }.
+ */
+    parseForIterators() {
+        const list = [];
+        while (true) {
+            if (this.cur.type !== 'ident') this.error('for: diharapkan variabel loop');
+            const varName = this.advance().value;
+            this.expect('=', "Diharapkan '='");
+            const iter = this.parseExpression();
+            list.push({ varName, iter });
+            if (!this.eat(',')) break;
+        }
+        return list;
+    }
+
     parseProgram() {
         const body = [];
         while (this.cur.type !== 'eof') body.push(this.parseStatement());
@@ -109,13 +126,10 @@ export class Parser {
             if (kw === 'for') {
                 this.advance();
                 this.expect('(', "Diharapkan '('");
-                if (this.cur.type !== 'ident') this.error('for: diharapkan variabel loop');
-                const varName = this.advance().value;
-                this.expect('=', "Diharapkan '='");
-                const iter = this.parseExpression();
+                const iterators = this.parseForIterators();
                 this.expect(')', "Diharapkan ')'");
                 const body = this.parseBody();
-                return { type: 'For', varName, iter, body, modifier, line: startTok.line };
+                return { type: 'For', iterators, body, modifier, line: startTok.line };
             }
 
             if (this.isOp('=', 1)) {
@@ -169,7 +183,26 @@ export class Parser {
         return { pos, named };
     }
 
-    parseExpression() { return this.parseBinary(0); }
+    // parseExpression() { return this.parseBinary(0); }
+    parseExpression() { return this.parseTernary(); }
+
+    /**
+     * Ternary `cond ? then : else`
+     * Precedence paling rendah, right-associative.
+     *   a ? b : c ? d : e   →   a ? b : (c ? d : e)
+     *   a ? b ? c : d : e   →   a ? (b ? c : d) : e
+     */
+    parseTernary() {
+        const cond = this.parseBinary(0);
+        if (this.isOp('?')) {
+            const qTok = this.advance();
+            const thenExpr = this.parseExpression();
+            this.expect(':', "Diharapkan ':' pada ekspresi ternary (a ? b : c)");
+            const elseExpr = this.parseExpression();
+            return { type: 'Ternary', cond, thenExpr, elseExpr, line: qTok.line };
+        }
+        return cond;
+    }
 
     parseBinary(level) {
         if (level >= BIN_LEVELS.length) return this.parseUnary();
@@ -211,6 +244,11 @@ export class Parser {
             if (t.value === 'true') { this.advance(); return { type: 'Literal', value: true }; }
             if (t.value === 'false') { this.advance(); return { type: 'Literal', value: false }; }
             if (t.value === 'undef') { this.advance(); return { type: 'Literal', value: null }; }
+
+            /* let(...) — expression binding */
+            if (t.value === 'let' && this.isOp('(', 1)) {
+                return this.parseLet();
+            }
 
             this.advance();
             if (this.isOp('(')) {
@@ -266,13 +304,32 @@ export class Parser {
     parseComprehensionFor() {
         this.advance();                                    // 'for'
         this.expect('(', "Diharapkan '('");
-        if (this.cur.type !== 'ident') this.error('for: diharapkan variabel loop');
-        const varName = this.advance().value;
-        this.expect('=', "Diharapkan '='");
-        const iter = this.parseExpression();
+        const iterators = this.parseForIterators();
         this.expect(')', "Diharapkan ')'");
         const body = this.parseComprehensionBody();
-        return { type: 'ListComp', kind: 'for', varName, iter, body };
+        return { type: 'ListComp', kind: 'for', iterators, body };
+    }
+
+    /**
+ * `let(a = e1, b = e2, ...) body`
+ * Expression-only. Body adalah ekspresi.
+ * Binding dievaluasi berurutan — `b` bisa referensi `a`.
+ */
+    parseLet() {
+        const letTok = this.advance();   // 'let'
+        this.expect('(', "Diharapkan '('");
+        const bindings = [];
+        while (!this.isOp(')')) {
+            if (this.cur.type !== 'ident') this.error('let: diharapkan nama variabel');
+            const name = this.advance().value;
+            this.expect('=', "Diharapkan '=' pada binding let");
+            const value = this.parseExpression();
+            bindings.push({ name, value });
+            if (!this.eat(',')) break;
+        }
+        this.expect(')', "Diharapkan ')'");
+        const body = this.parseExpression();
+        return { type: 'Let', bindings, body, line: letTok.line };
     }
 
     parseComprehensionIf() {

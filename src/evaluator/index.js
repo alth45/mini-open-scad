@@ -15,10 +15,14 @@ export class EvalContext {
         this.warned = new Set();
         this.echoes = [];
         this.files = files || {};
+        this.profiling = true;          // enable by default
+        this.opTimings = Object.create(null);
     }
+
     getFileBuffer(name) {
         return this.files[name] || null;
     }
+
     check() {
         if (performance.now() > this.deadline) {
             throw new SCADError(
@@ -27,12 +31,30 @@ export class EvalContext {
             );
         }
     }
+
     warn(msg) {
         if (this.warned.has(msg)) return;
         this.warned.add(msg);
         this.warnings.push(msg);
     }
-    log(msg) { this.echoes.push(msg); }              // NEW
+
+    log(msg) { this.echoes.push(msg); }
+
+    /** Ukur waktu eksekusi fn() dan catat ke statistik op. */
+    trackOp(name, fn) {
+        if (!this.profiling) return fn();
+        const t0 = performance.now();
+        try {
+            return fn();
+        } finally {
+            const dt = performance.now() - t0;
+            const cur = this.opTimings[name] || { total: 0, count: 0, max: 0 };
+            cur.total += dt;
+            cur.count += 1;
+            if (dt > cur.max) cur.max = dt;
+            this.opTimings[name] = cur;
+        }
+    }
 }
 
 export function makeRootScope(initialVars) {
@@ -66,6 +88,10 @@ export function evalExpr(node, scope, ctx) {
                 const v = scope.get('$fn');
                 return v === undefined ? CONFIG.defaultFn : v;
             }
+            if (node.name === '$preview') {
+                const v = scope.get('$preview');
+                return v === undefined ? true : v;
+            }
             if (node.name === '$children') {
                 const cc = findChildrenContext(scope);
                 return cc ? cc.children.length : 0;
@@ -98,6 +124,20 @@ export function evalExpr(node, scope, ctx) {
         }
 
         case 'Binary': return evalBinary(node, scope, ctx);
+        case 'Ternary': {
+            const c = evalExpr(node.cond, scope, ctx);
+            return truthy(c)
+                ? evalExpr(node.thenExpr, scope, ctx)
+                : evalExpr(node.elseExpr, scope, ctx);
+        }
+        case 'Let': {
+            const inner = new Scope(scope);
+            for (const b of node.bindings) {
+                /* `inner` dipakai — biar `b` bisa referensi binding sebelumnya */
+                inner.set(b.name, evalExpr(b.value, inner, ctx));
+            }
+            return evalExpr(node.body, inner, ctx);
+        }
 
         case 'Index': {
             const obj = evalExpr(node.object, scope, ctx);
@@ -166,14 +206,33 @@ function evalCompInto(node, scope, ctx, out) {
             return;
 
         case 'for': {
-            const iter = evalExpr(node.iter, scope, ctx);
-            const values = iterToValues(iter, node.line);
-            for (const v of values) {
-                ctx.check();
-                const inner = new Scope(scope);
-                inner.set(node.varName, v);
-                evalCompInto(node.body, inner, ctx, out);
+            const lists = node.iterators.map(it => ({
+                varName: it.varName,
+                values: iterToValues(evalExpr(it.iter, scope, ctx), node.line)
+            }));
+
+            const total = lists.reduce((a, b) => a * b.values.length, 1);
+            if (total > CONFIG.maxLoopIterations) {
+                throw new SCADError(
+                    `Loop terlalu besar (> ${CONFIG.maxLoopIterations} kombinasi)`,
+                    0
+                );
             }
+
+            function recurse(idx, inner) {
+                ctx.check();
+                if (idx === lists.length) {
+                    evalCompInto(node.body, inner, ctx, out);
+                    return;
+                }
+                const { varName, values } = lists[idx];
+                for (const v of values) {
+                    const child = new Scope(inner);
+                    child.set(varName, v);
+                    recurse(idx + 1, child);
+                }
+            }
+            recurse(0, scope);
             return;
         }
 
@@ -330,23 +389,47 @@ export function evalStatement(st, scope, ctx) {
         }
 
         case 'For': {
-            const iter = evalExpr(st.iter, scope, ctx);
-            const values = iterToValues(iter, st.line);
+            /* Evaluasi nilai tiap iterator */
+            const lists = st.iterators.map(it => ({
+                varName: it.varName,
+                values: iterToValues(evalExpr(it.iter, scope, ctx), st.line)
+            }));
+
+            /* Cek total kombinasi (Cartesian product) */
+            const total = lists.reduce((a, b) => a * b.values.length, 1);
+            if (total > CONFIG.maxLoopIterations) {
+                throw new SCADError(
+                    `Loop terlalu besar (> ${CONFIG.maxLoopIterations} kombinasi)`,
+                    st.line
+                );
+            }
 
             const out = [];
-            for (const v of values) {
+
+            /* Cartesian product via rekursi — leftmost outermost, rightmost cycles fastest */
+            function recurse(idx, inner) {
                 ctx.check();
-                const inner = new Scope(scope);
-                inner.set(st.varName, v);
-                out.push(...evalStatements(st.body, inner, ctx));
+                if (idx === lists.length) {
+                    out.push(...evalStatements(st.body, inner, ctx));
+                    return;
+                }
+                const { varName, values } = lists[idx];
+                for (const v of values) {
+                    const child = new Scope(inner);
+                    child.set(varName, v);
+                    recurse(idx + 1, child);
+                }
             }
+            recurse(0, scope);
+
             return out;
         }
+
         case 'ModuleCall': {
             const builtin = BUILTINS[st.name];
             if (builtin) {
                 const args = evalArgsNode(st.args, scope, ctx);
-                return builtin(args, st, scope, ctx) || [];
+                return ctx.trackOp(st.name, () => builtin(args, st, scope, ctx)) || [];
             }
 
             const userMod = scope.getModule(st.name);

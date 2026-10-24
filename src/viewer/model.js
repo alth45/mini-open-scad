@@ -7,21 +7,34 @@ import { applyParams } from '../evaluator/params.js';
  * Compile OpenSCAD source → THREE.Group + stats. Murni (tidak menyentuh scene).
  */
 export function buildModel(code, paramValues, files = null) {
+    const tStart = performance.now();
+
+    /* --- tokenize --- */
     const t0 = performance.now();
-
     const tokens = tokenize(code);
-    const ast = new Parser(tokens).parseProgram();
+    const tTokenize = performance.now() - t0;
 
+    /* --- parse --- */
+    const t1 = performance.now();
+    const ast = new Parser(tokens).parseProgram();
+    const tParse = performance.now() - t1;
+
+    /* --- apply params --- */
     if (paramValues) applyParams(ast, paramValues);
 
+    /* --- eval --- */
     const ctx = new EvalContext(files);
     const rootScope = makeRootScope(paramValues);
 
+    const t2 = performance.now();
     const results = evalStatements(ast.body, rootScope, ctx);
+    const tEval = performance.now() - t2;
 
+    /* --- stats --- */
+    const t3 = performance.now();
     const root = new THREE.Group();
     const warnings = [...ctx.warnings];
-    let meshCount = 0, triCount = 0;
+    let meshCount = 0, triCount = 0, vertexCount = 0;
 
     for (const r of results) {
         if (!r) continue;
@@ -35,18 +48,36 @@ export function buildModel(code, paramValues, files = null) {
         if (o.isMesh && o.geometry) {
             meshCount++;
             const pos = o.geometry.attributes.position;
-            if (pos) triCount += (o.geometry.index ? o.geometry.index.count : pos.count) / 3;
+            if (pos) {
+                vertexCount += pos.count;
+                triCount += (o.geometry.index ? o.geometry.index.count : pos.count) / 3;
+            }
         }
     });
+    const tStats = performance.now() - t3;
+
+    /* --- serialize (untuk worker) --- */
+    const t4 = performance.now();
+    const meshes = serializeModel(root);
+    const tSerialize = performance.now() - t4;
 
     return {
         root,
-        ms: performance.now() - t0,
+        ms: performance.now() - tStart,
+        breakdown: {
+            tokenize: tTokenize,
+            parse: tParse,
+            eval: tEval,
+            stats: tStats,
+            serialize: tSerialize
+        },
+        opTimings: ctx.opTimings,
         meshCount,
         triCount,
+        vertexCount,
         warnings,
-        echoes: [...ctx.echoes]
-
+        echoes: ctx.echoes || [],
+        meshes   // sudah diserialisasi — dipakai worker
     };
 }
 

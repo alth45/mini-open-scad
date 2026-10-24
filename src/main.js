@@ -21,6 +21,10 @@ import { createGifEncoder } from './gif.js';
 import { createCheatSheet } from './ui/cheatsheet.js';
 import { saveFile, loadFiles, listFiles, deleteFile } from './files/file-store.js';
 import { extractImportNames } from './core/ast-utils.js';
+import { createHomeScreen } from './ui/home.js';
+import { createDropdown } from './ui/dropdown.js';
+import { profiler } from './profiler.js';
+import { createProfilerPanel } from './ui/profiler-panel.js';
 
 /* ============================================================
    Viewer
@@ -192,16 +196,25 @@ async function doRender() {
     const code = editor.getValue();
     setStatus('rendering', 'Rendering…');
 
+    const tStart = performance.now();
+
     try {
         let result;
+        let workerRoundtrip = null;
 
         if (workerClient) {
             const data = await workerClient.run(code, state.paramValues);
+            workerRoundtrip = data.workerRoundtrip ?? null;
+
+            const tDeser = performance.now();
             result = {
                 root: deserializeModel(data.meshes),
                 ms: data.ms,
+                breakdown: { ...(data.breakdown || {}), deserialize: performance.now() - tDeser },
+                opTimings: data.opTimings || {},
                 meshCount: data.meshCount,
                 triCount: data.triCount,
+                vertexCount: data.vertexCount || 0,
                 warnings: data.warnings || [],
                 echoes: data.echoes || []
             };
@@ -209,13 +222,40 @@ async function doRender() {
             await new Promise(r => requestAnimationFrame(r));
             const importNames = extractImportNames(code);
             const files = importNames.length > 0 ? await loadFiles(importNames) : {};
-            result = buildModel(code, state.paramValues, files);
+            const built = buildModel(code, state.paramValues, files);
+            const tDeser = performance.now();
+            result = {
+                root: deserializeModel(built.meshes),
+                ms: built.ms,
+                breakdown: { ...(built.breakdown || {}), deserialize: performance.now() - tDeser },
+                opTimings: built.opTimings || {},
+                meshCount: built.meshCount,
+                triCount: built.triCount,
+                vertexCount: built.vertexCount || 0,
+                warnings: built.warnings || [],
+                echoes: built.echoes || []
+            };
         }
+
+        const totalMs = performance.now() - tStart;
 
         viewer.setModelRoot(result.root);
         viewer.fitToObject(result.root);
         setStatus('ready', 'Ready');
         state.lastSuccess = code;
+
+        profiler.record({
+            timestamp: Date.now(),
+            totalMs,
+            workerRoundtrip,
+            breakdown: result.breakdown,
+            opTimings: result.opTimings,
+            meshCount: result.meshCount,
+            triCount: result.triCount,
+            vertexCount: result.vertexCount,
+            error: null,
+            preview: code.replace(/\s+/g, ' ').slice(0, 80)
+        });
 
         log('ok',
             `Rendered in ${result.ms.toFixed(0)} ms · ${result.meshCount} mesh · ` +
@@ -226,31 +266,45 @@ async function doRender() {
         for (const e of result.echoes) log('info', e);
     } catch (err) {
         if (err && err.name === 'CancelledError') return;
+
+        const totalMs = performance.now() - tStart;
+        profiler.record({
+            timestamp: Date.now(),
+            totalMs,
+            workerRoundtrip: null,
+            breakdown: {},
+            opTimings: {},
+            meshCount: 0, triCount: 0, vertexCount: 0,
+            error: err.message || String(err),
+            preview: code.replace(/\s+/g, ' ').slice(0, 80)
+        });
+
         setStatus('error', 'Error');
         log('error', formatError(err, code));
         toast('✖ ' + (err.message || 'Render gagal'));
     }
 }
 
+
 /* ============================================================
-   Presets
+   Presets (custom dropdown)
    ============================================================ */
-const presetSel = document.getElementById('presetSelect');
-for (const name of Object.keys(PRESETS)) {
-    const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = name;
-    presetSel.appendChild(opt);
-}
-presetSel.addEventListener('change', () => {
-    const name = presetSel.value;
-    if (!name) return;
-    editor.setValue(PRESETS[name]);
-    tabManager.updateActiveSilent({ code: editor.getValue(), name });
-    saveNow();
-    presetSel.value = '';
-    doRender();
-    toast('Preset: ' + name);
+createDropdown({
+    container: document.getElementById('presetDropdown'),
+    placeholder: '— Presets —',
+    icon: '<i class="fa-solid fa-book"></i>',
+    resetAfterSelect: true,
+    items: Object.entries(PRESETS).map(([name]) => ({
+        value: name,
+        label: name,
+    })),
+    onSelect: (name) => {
+        editor.setValue(PRESETS[name]);
+        tabManager.updateActiveSilent({ code: editor.getValue(), name });
+        saveNow();
+        doRender();
+        toast('Preset: ' + name);
+    },
 });
 
 /* ============================================================
@@ -436,6 +490,76 @@ async function refreshFilesList() {
    Cheat Sheet
    ============================================================ */
 const cheatSheet = createCheatSheet(document.getElementById('cheatModal'));
+
+/* ============================================================
+   Home screen
+   ============================================================ */
+const HOME_SEEN_KEY = 'mini-openscad-home-seen';
+const editorMain = document.getElementById('editor');
+
+const homeScreen = createHomeScreen(
+    document.getElementById('homeScreen'),
+    {
+        onAction(action) {
+            switch (action) {
+                case 'new':
+                    homeScreen.hide();
+                    addTab();
+                    break;
+                case 'import':
+                    homeScreen.hide();
+                    document.getElementById('filesInput').click();
+                    break;
+                case 'files':
+                    homeScreen.hide();
+                    document.getElementById('btnFiles').click();
+                    break;
+                case 'cheat':
+                    homeScreen.hide();
+                    cheatSheet.open();
+                    break;
+                case 'skip':
+                    homeScreen.hide();
+                    break;
+            }
+        },
+        onFileInsert(name) {
+            homeScreen.hide();
+            const insert = `\nimport("${name}");\n`;
+            const sel = editorMain.selectionStart;
+            editorMain.value = editorMain.value.slice(0, sel) + insert + editorMain.value.slice(sel);
+            editorMain.dispatchEvent(new Event('input'));
+            toast(`Inserted import("${name}")`);
+        },
+        onFileDeleted(name) {
+            toast(`🗑 Deleted ${name}`);
+            scheduleAutoRender();
+        }
+    }
+);
+
+document.getElementById('btnHome').addEventListener('click', () => {
+    homeScreen.show();
+});
+
+/* ============================================================
+   Profiler
+   ============================================================ */
+const profilerPanel = createProfilerPanel(document.getElementById('profilerPanel'));
+
+document.getElementById('btnProfiler').addEventListener('click', () => {
+    profilerPanel.toggle();
+});
+
+// Esc menutup panel (jika tidak ada modal lain yang terbuka)
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && profilerPanel.isVisible()) {
+        // biarkan modal lain handle duluan
+        if (document.querySelector('.modal-backdrop:not(.hidden)')) return;
+        if (cheatSheet.isOpen()) return;
+        profilerPanel.hide();
+    }
+});
 
 /* ============================================================
    Capture: PNG + GIF
@@ -664,6 +788,25 @@ window.addEventListener('beforeunload', () => {
    ============================================================ */
 initConsoleControls();
 
+/* ============================================================
+   Toolbar: wheel → horizontal scroll
+   ============================================================ */
+(function setupToolbarScroll() {
+    const topbarScroll = document.getElementById('topbar-scroll');
+    if (!topbarScroll) return;
+
+    topbarScroll.addEventListener('wheel', (e) => {
+        /* hanya intercept kalau memang overflow */
+        if (topbarScroll.scrollWidth <= topbarScroll.clientWidth) return;
+        /* biarkan scroll horizontal asli (shift+wheel) lewat */
+        if (e.deltaX !== 0 && Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+        if (e.deltaY === 0) return;
+
+        e.preventDefault();
+        topbarScroll.scrollLeft += e.deltaY;
+    }, { passive: false });
+})();
+
 (async function init() {
     /* Cek URL share dulu */
     let shareData = null;
@@ -691,6 +834,16 @@ initConsoleControls();
         saveNow();
     } else {
         tabManager.load(loadTabs());
+    }
+
+
+    /* Show home on first visit */
+    const seenHome = localStorage.getItem(HOME_SEEN_KEY);
+    if (!seenHome) {
+        setTimeout(() => {
+            homeScreen.show();
+            localStorage.setItem(HOME_SEEN_KEY, '1');
+        }, 100);
     }
 
     log('info', 'Mini OpenSCAD siap. Ctrl+Enter = Render · Ctrl+S = Save.');

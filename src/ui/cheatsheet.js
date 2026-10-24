@@ -5,25 +5,25 @@
 const SHORTCUTS = {
   global: [
     { keys: ['Ctrl', 'Enter'], desc: 'Render sekarang' },
-    { keys: ['Ctrl', 'S'],     desc: 'Save ke localStorage' },
-    { keys: ['Ctrl', 'Z'],     desc: 'Undo' },
-    { keys: ['Ctrl', 'Y'],     desc: 'Redo (atau Ctrl+Shift+Z)' },
+    { keys: ['Ctrl', 'S'], desc: 'Save ke localStorage' },
+    { keys: ['Ctrl', 'Z'], desc: 'Undo' },
+    { keys: ['Ctrl', 'Y'], desc: 'Redo (atau Ctrl+Shift+Z)' },
     { keys: ['Ctrl', 'Shift', 'R'], desc: 'Hard refresh browser' },
-    { keys: ['?'],             desc: 'Toggle cheat sheet ini' },
-    { keys: ['Esc'],           desc: 'Tutup modal / cancel' }
+    { keys: ['?'], desc: 'Toggle cheat sheet ini' },
+    { keys: ['Esc'], desc: 'Tutup modal / cancel' }
   ],
   editor: [
-    { keys: ['Tab'],           desc: 'Indent 2 spasi' },
+    { keys: ['Tab'], desc: 'Indent 2 spasi' },
     { keys: ['Ctrl', 'Enter'], desc: 'Render dari mana saja' },
-    { keys: ['Ctrl', 'S'],     desc: 'Save paksa' },
-    { keys: ['Ctrl', 'Z'],     desc: 'Undo (per burst typing)' },
-    { keys: ['Ctrl', 'Y'],     desc: 'Redo' }
+    { keys: ['Ctrl', 'S'], desc: 'Save paksa' },
+    { keys: ['Ctrl', 'Z'], desc: 'Undo (per burst typing)' },
+    { keys: ['Ctrl', 'Y'], desc: 'Redo' }
   ],
   viewer: [
-    { keys: ['Drag kiri'],     desc: 'Rotate kamera' },
-    { keys: ['Drag kanan'],    desc: 'Pan kamera' },
-    { keys: ['Scroll'],        desc: 'Zoom in/out' },
-    { keys: ['⟲ Reset'],       desc: 'Kembali ke fit-to-model' }
+    { keys: ['Drag kiri'], desc: 'Rotate kamera' },
+    { keys: ['Drag kanan'], desc: 'Pan kamera' },
+    { keys: ['Scroll'], desc: 'Zoom in/out' },
+    { keys: ['⟲ Reset'], desc: 'Kembali ke fit-to-model' }
   ]
 };
 
@@ -79,7 +79,7 @@ const SYNTAX = [
   {
     title: 'Control Flow',
     items: [
-      { name: 'for', code: 'for (i = [0 : 10]) child(i);\nfor (i = [0 : 2 : 10]) child(i);\nfor (v = [1, 2, 3]) child(v);', desc: 'Loop range atau vector' },
+      { name: 'for', code: 'for (i = [0 : 10]) child(i);\nfor (i = [0 : 2 : 10]) child(i);\nfor (v = [1, 2, 3]) child(v);\nfor (x = [0:1], y = [0:1]) child([x,y]);', desc: 'Loop range, vector, atau multi-iterator (Cartesian)' },
       { name: 'if / else', code: 'if (cond) a();\nif (cond) a(); else b();', desc: 'Kondisional' },
       { name: 'module', code: 'module name(args) { body; }\nname(arg);', desc: 'Fungsi penggambar (bisa dipanggil berulang)' },
       { name: 'function', code: 'function f(x) = x * 2;\nf(5);   // 10', desc: 'Fungsi return nilai' },
@@ -92,8 +92,11 @@ const SYNTAX = [
     items: [
       { name: 'List comprehension', code: '[for (i = [0 : 5]) i * 2]\n[for (i = [0 : 10]) if (i % 2 == 0) i]', desc: 'Generate array dengan loop' },
       { name: 'Range', code: '[0 : 10]       // 0, 1, ..., 10\n[0 : 2 : 10]   // 0, 2, ..., 10', desc: 'Range dengan step' },
-      { name: 'Ternary', code: 'x > 0 ? "pos" : "neg"', desc: 'Kondisional ekspresi' },
-      { name: 'Vector ops', code: '[1, 2, 3] + 10   // [11, 12, 13]\n[1, 2, 3] * 2    // [2, 4, 6]', desc: 'Operasi elementwise' }
+      // { name: 'Ternary', code: 'x > 0 ? "pos" : "neg"', desc: 'Kondisional ekspresi' },
+      { name: 'let()', code: 'let(a = 10, b = a * 2) a + b   // 30\n[for (i = [0:5]) let(x = i * 2) x * x]', desc: 'Variabel lokal dalam ekspresi' },
+      { name: 'Vector ops', code: '[1, 2, 3] + 10   // [11, 12, 13]\n[1, 2, 3] * 2    // [2, 4, 6]', desc: 'Operasi elementwise' },
+      { name: 'Ternary', code: 'x > 0 ? "positive" : "negative"\n$fn = $preview ? 24 : 96;', desc: 'Kondisional: (cond) ? then : else' },
+      { name: '$preview', code: '// true saat edit (cepat)\n// false untuk export (final)\n$fn = $preview ? 24 : 96;', desc: 'Boolean otomatis — true di live editor' },
     ]
   },
   {
@@ -156,8 +159,8 @@ function renderSyntaxRow(item) {
 function buildHTML() {
   const shortcutsHTML = Object.entries(SHORTCUTS).map(([section, rows]) => {
     const title = section === 'global' ? 'Umum' :
-                  section === 'editor' ? 'Di Editor' :
-                  section === 'viewer' ? 'Di Viewport 3D' : section;
+      section === 'editor' ? 'Di Editor' :
+        section === 'viewer' ? 'Di Viewport 3D' : section;
     return `<div class="cheat-section">
       <h3 class="cheat-h3">${esc(title)}</h3>
       <div class="cheat-rows">${rows.map(renderShortcutRow).join('')}</div>
