@@ -19,33 +19,24 @@ export default defineConfig({
         ]
     },
     optimizeDeps: {
-        include: ['three', 'three-mesh-bvh', 'three-bvh-csg']
+        include: ['three', 'three-mesh-bvh', 'three-bvh-csg', 'opentype.js']
+    },
+    define: {
+        'process.env.NODE_ENV': JSON.stringify('production'),
+        'process.env': '{}'
     },
     build: {
         target: 'es2022',
         sourcemap: true,
-
-        /* three.js minified ~600kB, wajar; naikkan batas ke 900kB */
         chunkSizeWarningLimit: 900,
-
         rollupOptions: {
             output: {
                 manualChunks(id) {
                     if (!id.includes('node_modules')) return;
-
-                    /* CSG engine + dep mesh-bvh → chunk sendiri */
-                    if (id.includes('three-bvh-csg') || id.includes('three-mesh-bvh')) {
-                        return 'csg-vendor';
-                    }
-                    /* three core + addons (orbit controls, STL loader, dll) */
-                    if (id.includes('/node_modules/three/')) {
-                        return 'three-vendor';
-                    }
-                    /* GIF encoder */
-                    if (id.includes('/node_modules/gifenc/')) {
-                        return 'gif-vendor';
-                    }
-                    /* sisanya */
+                    if (id.includes('three-bvh-csg') || id.includes('three-mesh-bvh')) return 'csg-vendor';
+                    if (id.includes('/node_modules/three/')) return 'three-vendor';
+                    if (id.includes('/node_modules/gifenc/')) return 'gif-vendor';
+                    if (id.includes('/node_modules/opentype.js/')) return 'opentype-vendor';
                     return 'vendor';
                 }
             }

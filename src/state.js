@@ -2,5 +2,6 @@ export const state = {
   autoRender: true,
   lastSuccess: null,
   paramValues: {},
-  paramsPanelShownOnce: false
+  paramsPanelShownOnce: false,
+  previewMode: true
 };

@@ -12,7 +12,7 @@ import { CSG, csgApply, makeBrush } from './csg.js';
 import { findChildrenContext } from '../core/scope.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { getFont, DEFAULT_FONT } from './fonts.js';
-
+import { hasCJK, generateTextShapesSync, isOpenTypeFont } from './opentype-fonts.js';
 
 /* ============================================================
    Helper: 3D offset via Minkowski sum
@@ -645,8 +645,9 @@ export function makeBuiltins(evalStatements) {
             return [{ __shape2d: true, shapes: [new THREE.Shape(v2)] }];
         },
 
+
         /* ---------- TEXT (2D) ---------- */
-        text(a, node, scope) {
+        text(a, node, scope, ctx) {
             const str = getArg(a, 0, 'text', '');
             if (typeof str !== 'string') {
                 throw new SCADError('text(): text harus string', node.line);
@@ -654,7 +655,7 @@ export function makeBuiltins(evalStatements) {
             if (str.length === 0) return [];
 
             const size = Math.abs(numArg(getArg(a, 1, 'size', 10), 10)) || 10;
-            const fontName = String(getArg(a, 2, 'font', DEFAULT_FONT));
+            let fontName = String(getArg(a, 2, 'font', DEFAULT_FONT));
             const halign = String(a.named.halign || 'left').toLowerCase();
             const valign = String(a.named.valign || 'baseline').toLowerCase();
 
@@ -662,29 +663,44 @@ export function makeBuiltins(evalStatements) {
                 ctx.warn('text(): parameter `spacing` belum didukung, diabaikan.');
             }
 
-            let shapes;
-            try {
-                const font = getFont(fontName);
-                shapes = font.generateShapes(str, size);
-            } catch (e) {
-                throw new SCADError(`text(): gagal generate shapes: ${e.message}`, node.line);
-            }
+            /* --- pilih font berdasarkan isi string --- */
+            const useCJK = hasCJK(str);
+            if (useCJK && fontName === DEFAULT_FONT) fontName = 'noto-jp';
 
-            if (!shapes || shapes.length === 0) return [];
+            let shapes;
+            if (isOpenTypeFont(fontName)) {
+                const otShapes = generateTextShapesSync(fontName, str, size);
+                if (otShapes === null) {
+                    throw new SCADError(
+                        `text(): font '${fontName}' belum ready atau tidak tersedia. ` +
+                        `Pastikan 'public/fonts/noto-jp.otf' ada, lalu render lagi.`,
+                        node.line
+                    );
+                }
+                shapes = otShapes;
+                if (!shapes || shapes.length === 0) return [];
+            } else {
+                // helvetiker path — tidak berubah
+                try {
+                    const font = getFont(fontName);
+                    shapes = font.generateShapes(str, size);
+                } catch (e) {
+                    throw new SCADError(`text(): gagal generate shapes: ${e.message}`, node.line);
+                }
+                if (!shapes || shapes.length === 0) return [];
+            }
 
             /* --- alignment --- */
             const box = computeShapesBounds(shapes);
             if (box.isEmpty()) return [];
 
             let dx = 0, dy = 0;
-
             switch (halign) {
                 case 'center': dx = -(box.min.x + box.max.x) / 2; break;
                 case 'right': dx = -box.max.x; break;
                 case 'left':
                 default: dx = -box.min.x; break;
             }
-
             switch (valign) {
                 case 'center': dy = -(box.min.y + box.max.y) / 2; break;
                 case 'top': dy = -box.max.y; break;
@@ -692,7 +708,6 @@ export function makeBuiltins(evalStatements) {
                 case 'baseline':
                 default: dy = 0; break;
             }
-
             if (dx !== 0 || dy !== 0) {
                 for (const s of shapes) translateShape2D(s, dx, dy);
             }

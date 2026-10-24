@@ -1,6 +1,11 @@
 import { Font } from 'three/addons/loaders/FontLoader.js';
 import helvetikerRegular from '../assets/fonts/helvetiker_regular.typeface.json';
 import helvetikerBold from '../assets/fonts/helvetiker_bold.typeface.json';
+/**
+ * Font system:
+ * - helvetiker (Latin, three.js Font JSON) — default
+ * - noto-jp (CJK, opentype.js + OTF) — auto-dipilih untuk string Jepang
+ */
 
 /* Alias map — semua lowercase untuk matching case-insensitive */
 const FONT_DATA = {

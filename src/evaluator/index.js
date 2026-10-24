@@ -5,6 +5,8 @@ import { makeBuiltins } from './builtins.js';
 import { BUILTIN_FUNCTIONS } from './functions.js';
 import { suggestName } from '../utils/suggest.js';
 // import { Scope } from '../core/scope.js';
+import { isOpenTypeFont } from './opentype-fonts.js';
+
 
 /* ---------- EvalContext ---------- */
 export class EvalContext {
@@ -17,11 +19,16 @@ export class EvalContext {
         this.files = files || {};
         this.profiling = true;          // enable by default
         this.opTimings = Object.create(null);
+        this._otStates = Object.create(null);   // ← NEW: cache per-font
+
     }
+
 
     getFileBuffer(name) {
         return this.files[name] || null;
     }
+
+
 
     check() {
         if (performance.now() > this.deadline) {
@@ -57,11 +64,12 @@ export class EvalContext {
     }
 }
 
-export function makeRootScope(initialVars) {
+export function makeRootScope(initialVars, previewMode = true) {
     const s = new Scope(null);
     s.set('$fn', CONFIG.defaultFn);
     s.set('$fa', CONFIG.defaultFa);
     s.set('$fs', CONFIG.defaultFs);
+    s.set('$preview', !!previewMode);           // ← NEW
     if (initialVars) {
         for (const k in initialVars) {
             if (!k.startsWith('$')) s.set(k, initialVars[k]);

@@ -1,7 +1,6 @@
 /* ============================================================
    Cheat Sheet — modal referensi lengkap
    ============================================================ */
-
 const SHORTCUTS = {
   global: [
     { keys: ['Ctrl', 'Enter'], desc: 'Render sekarang' },
@@ -10,7 +9,9 @@ const SHORTCUTS = {
     { keys: ['Ctrl', 'Y'], desc: 'Redo (atau Ctrl+Shift+Z)' },
     { keys: ['Ctrl', 'Shift', 'R'], desc: 'Hard refresh browser' },
     { keys: ['?'], desc: 'Toggle cheat sheet ini' },
-    { keys: ['Esc'], desc: 'Tutup modal / cancel' }
+    { keys: ['Esc'], desc: 'Tutup modal / cancel' },
+    { keys: ['F5'], desc: 'Preview mode — cepat ($preview = true)' },
+    { keys: ['F6'], desc: 'Render mode — kualitas final ($preview = false)' },
   ],
   editor: [
     { keys: ['Tab'], desc: 'Indent 2 spasi' },
@@ -107,6 +108,7 @@ const SYNTAX = [
       { name: '! (show only)', code: '!cube(10);  // hanya ini yang tampil', desc: 'Isolasi objek untuk debug' },
       { name: '$fn', code: '$fn = 64;              // fixed segments\n$fn = 0;               // auto — pakai $fa/$fs\nsphere(r = 5, $fn = 32);  // override per-call', desc: 'Fixed segment count. 0 = auto' },
       { name: '$fa / $fs', code: '$fa = 12;          // max angle per segment (deg)\n$fs = 2;           // min arc length (mm)\n// n = min(360/$fa, 2πr/$fs), clamp [5, 512]', desc: 'Auto-tessellation (default 12/2)' },
+      { name: '$preview', code: '$preview = true;    // fast (F5)\n$preview = false;   // final (F6)\n$fn = $preview ? 24 : 96;', desc: 'Boolean mode — preview vs render' },
     ]
   },
   {
@@ -126,6 +128,12 @@ const SYNTAX = [
       { name: 'String', code: '// @param name {string world} Name', desc: 'Text input' },
       { name: 'Bool', code: '// @param solid {bool true} Solid?', desc: 'Checkbox on/off' },
       { name: 'Color', code: '// @param col {color #3b82f6} Color', desc: 'Color picker' }
+    ]
+  },
+  {
+    title: 'Text',
+    items: [
+      { name: 'text', code: 'text("Hello", size = 10);           // Latin\ntext("こんにちは", size = 10);      // Jepang (auto)\ntext("Hi", font = "helvetiker:bold", halign = "center");', desc: 'Text 2D — Latin & Jepang, pakai linear_extrude untuk 3D' },
     ]
   }
 ];

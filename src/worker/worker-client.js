@@ -29,7 +29,7 @@ export function createWorkerClient() {
     return {
         isReady: () => true,
 
-        async run(code, paramValues) {
+        async run(code, paramValues, previewMode) {
             const id = ++currentId;
             cancelPending('Superseded by new render');
 
@@ -82,7 +82,7 @@ export function createWorkerClient() {
                         console.log('[worker] ready signal received, sending job');
                         sent = true;
                         startWatchdog();
-                        worker.postMessage({ code, paramValues });
+                        worker.postMessage({ code, paramValues, previewMode });
                         return;
                     }
                     console.log('[worker] response for render', id, 'ok:', msg.ok);

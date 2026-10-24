@@ -1,11 +1,13 @@
 import { buildModel, serializeModel } from '../viewer/model.js';
 import { loadFiles } from '../files/file-store.js';
 import { extractImportNames } from '../core/ast-utils.js';
+import { preloadOpenTypeFonts } from '../evaluator/opentype-fonts.js';
+
 
 console.log('[eval-worker] module imports resolved');
 
 self.onmessage = async (e) => {
-    const { code, paramValues } = e.data || {};
+    const { code, paramValues, previewMode } = e.data || {};
     if (typeof code !== 'string') {
         self.postMessage({
             ok: false,
@@ -15,10 +17,13 @@ self.onmessage = async (e) => {
     }
 
     try {
+        /* Pre-load all OpenType fonts (idempotent — di-cache) */
+        await preloadOpenTypeFonts();
+
         const importNames = extractImportNames(code);
         const files = importNames.length > 0 ? await loadFiles(importNames) : {};
 
-        const result = buildModel(code, paramValues, files);
+        const result = buildModel(code, paramValues, files, previewMode);
 
         const transferables = [];
         for (const m of result.meshes) {

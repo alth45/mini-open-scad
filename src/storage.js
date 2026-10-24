@@ -1,19 +1,24 @@
 const OLD_KEY = 'mini-openscad-v1';
 const NEW_KEY = 'mini-openscad-v2';
 
-export function saveTabs(tabs, activeId) {
+export function saveTabs(tabs, activeId, previewMode = true) {
   try {
-    localStorage.setItem(NEW_KEY, JSON.stringify({ tabs, activeId }));
+    localStorage.setItem(NEW_KEY, JSON.stringify({ tabs, activeId, previewMode }));
   } catch { /* quota / private */ }
 }
 
 export function loadTabs() {
   try {
-    /* versi baru */
     const raw = localStorage.getItem(NEW_KEY);
     if (raw) {
       const data = JSON.parse(raw);
-      if (data && Array.isArray(data.tabs) && data.tabs.length > 0) return data;
+      if (data && Array.isArray(data.tabs) && data.tabs.length > 0) {
+        return {
+          tabs: data.tabs,
+          activeId: data.activeId,
+          previewMode: typeof data.previewMode === 'boolean' ? data.previewMode : true
+        };
+      }
     }
 
     /* migrasi dari v1 (single project) */
@@ -31,7 +36,8 @@ export function loadTabs() {
               ? old.paramValues : {},
             autoRender: typeof old.autoRender === 'boolean' ? old.autoRender : true
           }],
-          activeId: id
+          activeId: id,
+          previewMode: true
         };
         localStorage.removeItem(OLD_KEY);
         localStorage.setItem(NEW_KEY, JSON.stringify(migrated));

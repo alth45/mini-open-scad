@@ -169,7 +169,7 @@ let saveTimer = null;
 
 function saveNow() {
     if (!tabManager) return;
-    saveTabs(tabManager.tabs, tabManager.activeId);
+    saveTabs(tabManager.tabs, tabManager.activeId, state.previewMode);
 }
 
 function scheduleSave() {
@@ -203,7 +203,7 @@ async function doRender() {
         let workerRoundtrip = null;
 
         if (workerClient) {
-            const data = await workerClient.run(code, state.paramValues);
+            const data = await workerClient.run(code, state.paramValues, state.previewMode);
             workerRoundtrip = data.workerRoundtrip ?? null;
 
             const tDeser = performance.now();
@@ -222,7 +222,7 @@ async function doRender() {
             await new Promise(r => requestAnimationFrame(r));
             const importNames = extractImportNames(code);
             const files = importNames.length > 0 ? await loadFiles(importNames) : {};
-            const built = buildModel(code, state.paramValues, files);
+            const built = buildModel(code, state.paramValues, files, state.previewMode);
             const tDeser = performance.now();
             result = {
                 root: deserializeModel(built.meshes),
@@ -562,6 +562,41 @@ document.addEventListener('keydown', (e) => {
 });
 
 /* ============================================================
+   Preview / Render mode toggle
+   ============================================================ */
+const btnPreview = document.getElementById('btnPreview');
+
+function updatePreviewBtn() {
+    if (state.previewMode) {
+        btnPreview.innerHTML = '👁 <span class="lbl">Preview</span>';
+        btnPreview.classList.remove('toggle-on');
+        btnPreview.title = 'Preview mode (fast). Klik untuk render final (F6).';
+    } else {
+        btnPreview.innerHTML = '✦ <span class="lbl">Render</span>';
+        btnPreview.classList.add('toggle-on');
+        btnPreview.title = 'Render mode (final quality). Klik untuk preview (F5).';
+    }
+}
+
+function setPreviewMode(value) {
+    if (state.previewMode === value) return;
+    state.previewMode = value;
+    updatePreviewBtn();
+    saveNow();
+    doRender();
+
+    if (!value) {
+        toast('✦ Render mode — kualitas final, lebih lambat');
+    } else {
+        toast('👁 Preview mode — cepat');
+    }
+}
+
+btnPreview.addEventListener('click', () => {
+    setPreviewMode(!state.previewMode);
+});
+
+/* ============================================================
    Capture: PNG + GIF
    ============================================================ */
 document.getElementById('btnPng').addEventListener('click', () => {
@@ -757,6 +792,19 @@ document.querySelectorAll('#tabbar button[data-tab]').forEach(b => {
    Shortcuts
    ============================================================ */
 window.addEventListener('keydown', e => {
+
+    if (e.key === 'F5') {
+        e.preventDefault();
+        if (!state.previewMode) setPreviewMode(true);
+        return;
+    }
+    /* F6 → render mode */
+    if (e.key === 'F6') {
+        e.preventDefault();
+        if (state.previewMode) setPreviewMode(false);
+        return;
+    }
+
     const inField = e.target.matches('input, textarea, select, [contenteditable]');
 
     /* ? → toggle cheat sheet (hanya jika tidak di field) */
@@ -821,6 +869,9 @@ initConsoleControls();
         const sharedTab = createTab(shareData.name, shareData.code, shareData.paramValues);
 
         if (existing && existing.tabs.length > 0) {
+            if (typeof shareData.previewMode === 'boolean') {
+                state.previewMode = shareData.previewMode;
+            }
             const tabs = [...existing.tabs, sharedTab];
             tabManager.load({ tabs, activeId: sharedTab.id });
             toast('📥 Shared project ditambahkan sebagai tab baru');
