@@ -137,7 +137,7 @@ Dropdown Presets di topbar berisi 8 contoh siap pakai:
 - Mirror + color
 
 
-### ⌨️ Keyboard Shortcuts
+
 
 # 📋 Cheat Sheet — Markdown Editor
 
@@ -235,11 +235,21 @@ mini-open-scad/
 
 Layer **evaluator** tidak meng-`import` UI module — ketergantungan hanya satu arah.
 
-```
-┌─────────┐      ┌────────────┐      ┌──────────┐
-│   UI    │ ───▶ │ Evaluator  │ ───▶ │  Model   │
-└─────────┘      └────────────┘      └──────────┘
-     ✗ tidak pernah di-import balik
+```mermaid
+flowchart LR
+    UI["🖥️ UI"]
+    EVAL["⚙️ Evaluator"]
+    MODEL["📦 Model"]
+
+    UI -->|"source code (string)"| EVAL
+    EVAL -->|"model data (pure)"| MODEL
+
+    MODEL -.->|"❌ tidak pernah di-import balik"| UI
+
+    style UI fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
+    style EVAL fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
+    style MODEL fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000
+
 ```
 
 - UI mengirim **source code** sebagai string
