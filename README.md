@@ -13,6 +13,7 @@ Editor OpenSCAD ringan yang berjalan 100% di browser. Tidak butuh install, tidak
 | Dokumen | Deskripsi |
 |:---|:---|
 | [🏗️ Arsitektur & Design Principles](./docs-md/architecture.md) | Struktur proyek, prinsip desain, Worker boundary, Data-driven UI |
+| [🆕 Fitur Terbaru](./docs-md/fitur-terbaru.md) | Daftar fitur-fitur terbaru yang sudah terimplementasi di codebase |
 | [🧪 Testing & Sanity Checklist](./docs-md/testing.md) | Checklist manual fitur bahasa & tool |
 | [🌐 Deploy Guide](./docs-md/deploy.md) | Netlify, Vercel, GitHub Pages, Docker |
 | [🛠️ Development Tips](./docs-md/dev-tips.md) | Debug Worker, verbose logs, extend builtins & syntax |
