@@ -1,11 +1,8 @@
 /* ============================================================
    WORKER CLIENT — main-thread wrapper
-   - 1 worker per render (terminate lama = cancel otomatis)
-   - Promise lama di-reject saat worker baru muncul
+   PENTING: new Worker(new URL(...)) HARUS satu ekspresi
+   supaya Vite bisa bundle worker di production build.
    ============================================================ */
-
-const WORKER_URL = new URL('./eval-worker.js', import.meta.url);
-console.log('[worker] URL:', WORKER_URL.href);
 
 export function createWorkerClient() {
     if (typeof Worker === 'undefined') {
@@ -40,7 +37,11 @@ export function createWorkerClient() {
                 console.log('[worker] spawning worker for render', id);
                 let worker;
                 try {
-                    worker = new Worker(WORKER_URL, { type: 'module' });
+                    /* ⬇⬇⬇ INLINE — jangan dipisah ke variabel */
+                    worker = new Worker(
+                        new URL('./eval-worker.js', import.meta.url),
+                        { type: 'module' }
+                    );
                 } catch (e) {
                     console.error('[worker] constructor failed:', e);
                     reject({ name: 'WorkerInitError', message: e.message, line: 0, isScad: false });
@@ -59,7 +60,7 @@ export function createWorkerClient() {
                         finish();
                         reject({
                             name: 'WorkerTimeoutError',
-                            message: 'Worker timeout setelah ready. Kemungkinan buildModel hang.',
+                            message: 'Worker timeout setelah ready.',
                             line: 0,
                             isScad: false
                         });
@@ -77,8 +78,6 @@ export function createWorkerClient() {
 
                 worker.onmessage = (e) => {
                     const msg = e.data || {};
-
-                    /* Sinyal ready pertama: kirim job sekarang */
                     if (msg.type === 'ready' && !sent) {
                         console.log('[worker] ready signal received, sending job');
                         sent = true;
@@ -86,8 +85,6 @@ export function createWorkerClient() {
                         worker.postMessage({ code, paramValues });
                         return;
                     }
-
-                    /* Hasil render sebenarnya */
                     console.log('[worker] response for render', id, 'ok:', msg.ok);
                     if (id !== currentId) return;
                     finish();
