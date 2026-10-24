@@ -15,6 +15,7 @@ import { createParamsPanel } from './ui/params-panel.js';
 import { createWorkerClient } from './worker/worker-client.js';
 import { TabManager, createTab } from './tabs.js';
 import { createTabBar } from './ui/tabbar.js';
+import { encodeShareTab, buildShareUrl, readShareFromUrl } from './share.js';
 
 /* ============================================================
    Viewer
@@ -246,6 +247,60 @@ presetSel.addEventListener('change', () => {
 });
 
 /* ============================================================
+   Share
+   ============================================================ */
+const shareModal = document.getElementById('shareModal');
+const shareUrlEl = document.getElementById('shareUrl');
+const shareLenEl = document.getElementById('shareLen');
+const shareWarnEl = document.getElementById('shareWarn');
+
+document.getElementById('btnShare').addEventListener('click', openShareModal);
+document.getElementById('shareClose').addEventListener('click', () => shareModal.classList.add('hidden'));
+shareModal.addEventListener('click', (e) => {
+    if (e.target === shareModal) shareModal.classList.add('hidden');
+});
+
+async function openShareModal() {
+    const tab = tabManager.active;
+    if (!tab) return;
+
+    try {
+        const hash = await encodeShareTab(tab);
+        const url = buildShareUrl(hash);
+
+        shareUrlEl.value = url;
+        shareUrlEl.dataset.url = url;
+        shareLenEl.textContent = url.length;
+        shareWarnEl.classList.toggle('hidden', url.length <= 8000);
+
+        shareModal.classList.remove('hidden');
+        shareUrlEl.focus();
+        shareUrlEl.select();
+    } catch (e) {
+        log('error', 'Gagal membuat share URL: ' + e.message);
+        toast('✖ Share gagal');
+    }
+}
+
+document.getElementById('shareCopy').addEventListener('click', async () => {
+    const url = shareUrlEl.dataset.url || shareUrlEl.value;
+    try {
+        await navigator.clipboard.writeText(url);
+        toast('📋 URL copied');
+    } catch {
+        shareUrlEl.focus();
+        shareUrlEl.select();
+        document.execCommand('copy');
+        toast('📋 URL copied');
+    }
+});
+
+document.getElementById('shareOpen').addEventListener('click', () => {
+    const url = shareUrlEl.dataset.url || shareUrlEl.value;
+    window.open(url, '_blank', 'noopener');
+});
+
+/* ============================================================
    Buttons
    ============================================================ */
 const btnAuto = document.getElementById('btnAutoRender');
@@ -331,8 +386,34 @@ window.addEventListener('beforeunload', () => {
    ============================================================ */
 initConsoleControls();
 
-(function init() {
-    tabManager.load(loadTabs());
+(async function init() {
+    /* Cek URL share dulu */
+    let shareData = null;
+    try {
+        shareData = await readShareFromUrl();
+    } catch (e) {
+        console.warn('[share] read error:', e);
+    }
+
+    if (shareData) {
+        const existing = loadTabs();
+        const sharedTab = createTab(shareData.name, shareData.code, shareData.paramValues);
+
+        if (existing && existing.tabs.length > 0) {
+            const tabs = [...existing.tabs, sharedTab];
+            tabManager.load({ tabs, activeId: sharedTab.id });
+            toast('📥 Shared project ditambahkan sebagai tab baru');
+        } else {
+            tabManager.load({ tabs: [sharedTab], activeId: sharedTab.id });
+            toast('📥 Shared project loaded');
+        }
+
+        /* Clear hash agar refresh tidak duplicate */
+        history.replaceState(null, '', location.pathname + location.search);
+        saveNow();
+    } else {
+        tabManager.load(loadTabs());
+    }
 
     log('info', 'Mini OpenSCAD siap. Ctrl+Enter = Render · Ctrl+S = Save.');
     if (!CSG) {

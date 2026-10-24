@@ -18,6 +18,7 @@
         <button id="btnParams" title="Toggle parameter panel">⚙ <span class="lbl">Params</span></button>
         <button id="btnRender" class="primary" title="Render (Ctrl+Enter)">▶ <span class="lbl">Render</span></button>
         <button id="btnExport" title="Export STL">⬇ <span class="lbl">Export STL</span></button>
+        <button id="btnShare" title="Share via URL">🔗 <span class="lbl">Share</span></button>
         <select id="presetSelect" title="Presets">
             <option value="">— Presets —</option>
         </select>
@@ -80,6 +81,28 @@
     </div>
 
     <div id="toast"></div>
+
+    <!--MODAL-->
+    <div id="shareModal" class="modal-backdrop hidden">
+        <div class="modal">
+            <div class="modal-title">
+                <span>🔗 Share Project</span>
+                <button id="shareClose" class="modal-x">✕</button>
+            </div>
+            <div class="modal-body">
+                <p>URL berisi kode + parameter <strong>tab aktif</strong>. Panjang: <strong id="shareLen">—</strong>
+                    karakter.</p>
+                <textarea id="shareUrl" readonly rows="4"></textarea>
+                <div id="shareWarn" class="modal-warning hidden">
+                    ⚠ URL panjang (>8000 karakter). Chat apps & email client kadang memotong URL sepanjang ini.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="shareCopy" class="primary">📋 Copy URL</button>
+                <button id="shareOpen">↗ Open</button>
+            </div>
+        </div>
+    </div>
 
     <script type="module" src="./src/main.js"></script>
 </body>
