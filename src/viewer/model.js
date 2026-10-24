@@ -6,7 +6,7 @@ import { applyParams } from '../evaluator/params.js';
 /**
  * Compile OpenSCAD source → THREE.Group + stats. Murni (tidak menyentuh scene).
  */
-export function buildModel(code, paramValues) {
+export function buildModel(code, paramValues, files = null) {
     const t0 = performance.now();
 
     const tokens = tokenize(code);
@@ -14,7 +14,7 @@ export function buildModel(code, paramValues) {
 
     if (paramValues) applyParams(ast, paramValues);
 
-    const ctx = new EvalContext();
+    const ctx = new EvalContext(files);
     const rootScope = makeRootScope(paramValues);
 
     const results = evalStatements(ast.body, rootScope, ctx);

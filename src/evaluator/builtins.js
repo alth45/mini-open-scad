@@ -9,6 +9,7 @@ import {
 } from './geometry.js';
 import { CSG, csgApply, makeBrush } from './csg.js';
 import { findChildrenContext } from '../core/scope.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 
 
 /* ============================================================
@@ -355,6 +356,52 @@ export function makeBuiltins(evalStatements) {
                 out.push(...res);
             }
             return out;
+        },
+
+
+        /* ---------- IMPORT STL ---------- */
+        import(a, node, scope, ctx) {
+            const filename = getArg(a, 0, 'file', null);
+            if (typeof filename !== 'string') {
+                throw new SCADError('import(): butuh nama file string', node.line);
+            }
+
+            const buffer = ctx.getFileBuffer(filename);
+            if (!buffer) {
+                throw new SCADError(
+                    `import(): file tidak ditemukan: '${filename}'`,
+                    node.line, 0,
+                    `Import lewat tombol 📁 atau drag-drop STL ke viewport`
+                );
+            }
+
+            let geometry;
+            try {
+                const loader = new STLLoader();
+                geometry = loader.parse(buffer);
+            } catch (e) {
+                throw new SCADError(
+                    `import(): gagal parse STL '${filename}': ${e.message}`,
+                    node.line
+                );
+            }
+
+            if (!geometry || !geometry.attributes.position || geometry.attributes.position.count === 0) {
+                throw new SCADError(`import(): STL kosong atau korup: '${filename}'`, node.line);
+            }
+
+            if (!geometry.attributes.normal) geometry.computeVertexNormals();
+
+            if (a.named.center) {
+                geometry.computeBoundingBox();
+                const c = new THREE.Vector3();
+                geometry.boundingBox.getCenter(c);
+                geometry.translate(-c.x, -c.y, -c.z);
+            }
+
+            // convexity = CGAL hint, tidak berpengaruh di renderer kita — diabaikan.
+
+            return [makeMesh(geometry)];
         },
 
         /* ---------- RESIZE ---------- */

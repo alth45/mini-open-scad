@@ -8,12 +8,16 @@ import { suggestName } from '../utils/suggest.js';
 
 /* ---------- EvalContext ---------- */
 export class EvalContext {
-    constructor() {
+    constructor(files = null) {
         this.start = performance.now();
         this.deadline = this.start + CONFIG.evalTimeoutMs;
         this.warnings = [];
         this.warned = new Set();
         this.echoes = [];
+        this.files = files || {};
+    }
+    getFileBuffer(name) {
+        return this.files[name] || null;
     }
     check() {
         if (performance.now() > this.deadline) {

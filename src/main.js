@@ -16,9 +16,11 @@ import { createWorkerClient } from './worker/worker-client.js';
 import { TabManager, createTab } from './tabs.js';
 import { createTabBar } from './ui/tabbar.js';
 import { encodeShareTab, buildShareUrl, readShareFromUrl } from './share.js';
-import { downloadDataUrl, downloadBlob, timestampForFile } from './utils.js';
+import { downloadDataUrl, downloadBlob, timestampForFile, escapeHtml } from './utils.js';
 import { createGifEncoder } from './gif.js';
 import { createCheatSheet } from './ui/cheatsheet.js';
+import { saveFile, loadFiles, listFiles, deleteFile } from './files/file-store.js';
+import { extractImportNames } from './core/ast-utils.js';
 
 /* ============================================================
    Viewer
@@ -205,7 +207,9 @@ async function doRender() {
             };
         } else {
             await new Promise(r => requestAnimationFrame(r));
-            result = buildModel(code, state.paramValues);
+            const importNames = extractImportNames(code);
+            const files = importNames.length > 0 ? await loadFiles(importNames) : {};
+            result = buildModel(code, state.paramValues, files);
         }
 
         viewer.setModelRoot(result.root);
@@ -302,6 +306,131 @@ document.getElementById('shareOpen').addEventListener('click', () => {
     const url = shareUrlEl.dataset.url || shareUrlEl.value;
     window.open(url, '_blank', 'noopener');
 });
+
+/* ============================================================
+   Files (STL import)
+   ============================================================ */
+const filesModal = document.getElementById('filesModal');
+const filesInput = document.getElementById('filesInput');
+const filesListEl = document.getElementById('filesList');
+const dropOverlay = document.getElementById('dropOverlay');
+const editorEl = document.getElementById('editor');
+
+document.getElementById('btnFiles').addEventListener('click', openFilesModal);
+document.getElementById('filesClose').addEventListener('click', () => filesModal.classList.add('hidden'));
+filesModal.addEventListener('click', (e) => { if (e.target === filesModal) filesModal.classList.add('hidden'); });
+
+document.getElementById('filesPick').addEventListener('click', () => filesInput.click());
+filesInput.addEventListener('change', async () => {
+    if (filesInput.files && filesInput.files.length > 0) {
+        await importFiles([...filesInput.files]);
+        filesInput.value = '';
+        await refreshFilesList();
+    }
+});
+
+/* Drag & drop di viewport */
+let dragCounter = 0;
+viewer.container.addEventListener('dragenter', (e) => {
+    if (!e.dataTransfer?.types?.includes('Files')) return;
+    e.preventDefault();
+    dragCounter++;
+    dropOverlay.classList.remove('hidden');
+});
+viewer.container.addEventListener('dragover', (e) => {
+    if (!e.dataTransfer?.types?.includes('Files')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+});
+viewer.container.addEventListener('dragleave', () => {
+    if (--dragCounter <= 0) {
+        dragCounter = 0;
+        dropOverlay.classList.add('hidden');
+    }
+});
+viewer.container.addEventListener('drop', async (e) => {
+    if (!e.dataTransfer?.files?.length) return;
+    e.preventDefault();
+    dragCounter = 0;
+    dropOverlay.classList.add('hidden');
+    await importFiles([...e.dataTransfer.files]);
+    await refreshFilesList();
+});
+
+async function importFiles(files) {
+    const MAX_SIZE = 100 * 1024 * 1024;
+    let saved = 0, skipped = 0;
+    for (const f of files) {
+        if (!/\.stl$/i.test(f.name)) { skipped++; continue; }
+        if (f.size > MAX_SIZE) {
+            log('warn', `File '${f.name}' terlalu besar (${(f.size / 1024 / 1024).toFixed(1)}MB > 100MB)`);
+            skipped++;
+            continue;
+        }
+        try {
+            const buffer = await f.arrayBuffer();
+            await saveFile(f.name, buffer, f.type || 'model/stl');
+            saved++;
+            log('info', `📁 ${f.name} (${(f.size / 1024).toFixed(1)} KB) imported`);
+        } catch (err) {
+            log('error', `Gagal import '${f.name}': ${err.message}`);
+        }
+    }
+    if (saved > 0) {
+        toast(`📁 ${saved} file imported`);
+        scheduleAutoRender();
+    }
+    if (skipped > 0) log('warn', `${skipped} file dilewati`);
+}
+
+async function openFilesModal() {
+    filesModal.classList.remove('hidden');
+    await refreshFilesList();
+}
+
+async function refreshFilesList() {
+    try {
+        const files = await listFiles();
+        filesListEl.innerHTML = '';
+        if (files.length === 0) {
+            filesListEl.innerHTML =
+                '<div class="files-empty">Belum ada file. Import STL di atas, atau drag-drop ke viewport.</div>';
+            return;
+        }
+        for (const f of files) {
+            const el = document.createElement('div');
+            el.className = 'files-item';
+            el.innerHTML = `
+        <div class="files-info">
+          <div class="files-name">${escapeHtml(f.name)}</div>
+          <div class="files-meta">${(f.size / 1024).toFixed(1)} KB · ${new Date(f.uploadedAt).toLocaleDateString()}</div>
+        </div>
+        <div class="files-actions">
+          <button class="files-insert" title="Insert import ke editor">⌨</button>
+          <button class="files-delete" title="Hapus">✕</button>
+        </div>
+      `;
+            el.querySelector('.files-insert').addEventListener('click', () => {
+                const insert = `\nimport("${f.name}");\n`;
+                const sel = editorEl.selectionStart;
+                editorEl.value = editorEl.value.slice(0, sel) + insert + editorEl.value.slice(sel);
+                editorEl.dispatchEvent(new Event('input'));
+                filesModal.classList.add('hidden');
+                toast(`Inserted import("${f.name}")`);
+            });
+            el.querySelector('.files-delete').addEventListener('click', async () => {
+                if (!confirm(`Hapus file '${f.name}'?`)) return;
+                await deleteFile(f.name);
+                await refreshFilesList();
+                toast(`🗑 Deleted ${f.name}`);
+                scheduleAutoRender();
+            });
+            filesListEl.appendChild(el);
+        }
+    } catch (err) {
+        log('error', 'Gagal list files: ' + err.message);
+    }
+}
 
 /* ============================================================
    Cheat Sheet

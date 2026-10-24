@@ -5,6 +5,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
     <title>Mini OpenSCAD</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
 </head>
 
 <body>
@@ -13,21 +15,29 @@
         <div id="brand">
             <div class="logo"></div><span class="name">Mini OpenSCAD</span>
         </div>
-        <button id="btnUndo" title="Undo (Ctrl+Z)" disabled>↶ <span class="lbl">Undo</span></button>
-        <button id="btnRedo" title="Redo (Ctrl+Y)" disabled>↷ <span class="lbl">Redo</span></button>
-        <button id="btnParams" title="Toggle parameter panel">⚙ <span class="lbl">Params</span></button>
-        <button id="btnRender" class="primary" title="Render (Ctrl+Enter)">▶ <span class="lbl">Render</span></button>
-        <button id="btnExport" title="Export STL">⬇ <span class="lbl">Export STL</span></button>
-        <button id="btnShare" title="Share via URL">🔗 <span class="lbl">Share</span></button>
-        <button id="btnPng" title="Screenshot PNG (2×)">📷 <span class="lbl">PNG</span></button>
-        <button id="btnGif" title="Turntable GIF">🎞 <span class="lbl">GIF</span></button>
+        <button id="btnUndo" title="Undo (Ctrl+Z)" disabled><i class="fa-solid fa-rotate-left"></i> <span
+                class="lbl">Undo</span></button>
+        <button id="btnRedo" title="Redo (Ctrl+Y)" disabled><i class="fa-solid fa-rotate-right"></i> <span
+                class="lbl">Redo</span></button>
+        <button id="btnParams" title="Toggle parameter panel"><i class="fa-solid fa-gear"></i> <span
+                class="lbl">Params</span></button>
+        <button id="btnRender" class="primary" title="Render (Ctrl+Enter)"><i class="fa-solid fa-play"></i><span
+                class="lbl">Render</span></button>
+        <button id="btnExport" title="Export STL"><i class="fa-solid fa-download"></i> <span class="lbl">Export
+                STL</span></button>
+        <button id="btnShare" title="Share via URL"><i class="fa-solid fa-link"></i> <span
+                class="lbl">Share</span></button>
+        <button id="btnPng" title="Screenshot PNG (2×)"><i class="fa-solid fa-camera"></i> <span
+                class="lbl">PNG</span></button>
+        <button id="btnGif" title="Turntable GIF"><i class="fa-solid fa-film"></i> <span class="lbl">GIF</span></button>
+        <button id="btnFiles" title="Imported STL files"><i class="fa-solid fa-folder"></i> <span class="lbl">Files</span></button>
         <select id="presetSelect" title="Presets">
             <option value="">— Presets —</option>
         </select>
         <button id="btnClear" title="Kosongkan editor">✕ <span class="lbl">Clear</span></button>
         <div class="spacer"></div>
-        <button id="btnAutoRender" class="toggle-on" title="Auto-render saat idle">⚡ <span
-                class="lbl">Auto</span></button>
+        <button id="btnAutoRender" class="toggle-on" title="Auto-render saat idle"><i class="fa-solid fa-bolt"></i>
+            <span class="lbl">Auto</span></button>
         <div id="statusWrap">
             <div id="statusDot" class="dot ready"></div><span id="statusText">Ready</span>
         </div>
@@ -64,15 +74,15 @@
         <section id="right">
             <div id="viewport"></div>
             <div id="viewportOverlay">
-                <button id="btnWireframe" title="Toggle wireframe">◇ Wireframe</button>
-                <button id="btnGrid" class="toggle-on" title="Toggle grid">▦ Grid</button>
-                <button id="btnReset" title="Reset view">⟲ Reset view</button>
+                <button id="btnWireframe" title="Toggle wireframe"><i class="fa-solid fa-wireframe"></i> Wireframe</button>
+                <button id="btnGrid" class="toggle-on" title="Toggle grid"><i class="fa-solid fa-grid"></i> Grid</button>
+                <button id="btnReset" title="Reset view"><i class="fa-solid fa-reset"></i> Reset view</button>
             </div>
             <div id="viewInfo">—</div>
             <div id="fps">– fps</div>
             <div id="paramsPanel" class="hidden">
                 <div id="paramsHead">
-                    <span id="paramsTitle">⚙ Parameters</span>
+                    <span id="paramsTitle"><i class="fa-solid fa-gear"></i> Parameters</span>
                     <div class="spacer"></div>
                     <button id="paramsReset" title="Reset ke default">↺</button>
                     <button id="paramsClose" title="Close">✕</button>
@@ -88,7 +98,7 @@
     <div id="shareModal" class="modal-backdrop hidden">
         <div class="modal">
             <div class="modal-title">
-                <span>🔗 Share Project</span>
+                <span><i class="fa-solid fa-share"></i> Share Project</span>
                 <button id="shareClose" class="modal-x">✕</button>
             </div>
             <div class="modal-body">
@@ -96,11 +106,11 @@
                     karakter.</p>
                 <textarea id="shareUrl" readonly rows="4"></textarea>
                 <div id="shareWarn" class="modal-warning hidden">
-                    ⚠ URL panjang (>8000 karakter). Chat apps & email client kadang memotong URL sepanjang ini.
+                    <i class="fa-solid fa-warning"></i> URL panjang (>8000 karakter). Chat apps & email client kadang memotong URL sepanjang ini.
                 </div>
             </div>
             <div class="modal-footer">
-                <button id="shareCopy" class="primary">📋 Copy URL</button>
+                <button id="shareCopy" class="primary"><i class="fa-solid fa-copy"></i> Copy URL</button>
                 <button id="shareOpen">↗ Open</button>
             </div>
         </div>
@@ -141,13 +151,33 @@
             </div>
             <div class="modal-footer">
                 <button id="gifCancel" disabled>Cancel</button>
-                <button id="gifStart" class="primary">▶ Start</button>
+                <button id="gifStart" class="primary"><i class="fa-solid fa-play"></i> Start</button>
             </div>
         </div>
     </div>
 
     <!--CHEATSHEET MODAL-->
     <div id="cheatModal" class="modal-backdrop hidden"></div>
+
+    <!--Modal stl import-->
+    <div id="filesModal" class="modal-backdrop hidden">
+        <div class="modal">
+            <div class="modal-title">
+                <span><i class="fa-solid fa-folder"></i> Imported Files</span>
+                <button id="filesClose" class="modal-x">✕</button>
+            </div>
+            <div class="modal-body">
+                <p>Import STL via tombol atau drag-drop file <code>.stl</code> ke viewport 3D.</p>
+                <button id="filesPick" class="primary" style="margin-bottom:14px"><i class="fa-solid fa-file-arrow-up"></i> Choose STL File…</button>
+                <input type="file" id="filesInput" accept=".stl" hidden>
+                <div id="filesList" class="files-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="dropOverlay" class="drop-overlay hidden">
+        <div class="drop-inner"><i class="fa-solid fa-file-arrow-up"></i> Drop STL file to import</div>
+    </div>
 
     <script type="module" src="./src/main.js"></script>
 </body>

@@ -1234,3 +1234,111 @@ kbd {
     font-size: 10px;
   }
 }
+
+/* ---------- FILES MANAGER ---------- */
+.files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.files-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.files-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, .25);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+
+.files-info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.files-name {
+  font: 12px var(--mono);
+  color: var(--accent-hi);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.files-meta {
+  font: 10px var(--mono);
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.files-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.files-actions button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: #2d2d30;
+  border: 1px solid var(--border-2);
+  border-radius: 4px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.files-actions button:hover {
+  background: #37373b;
+}
+
+.files-actions .files-delete:hover {
+  background: rgba(239, 68, 68, .2);
+  border-color: rgba(239, 68, 68, .5);
+  color: #ff7b72;
+}
+
+/* ---------- DROP OVERLAY ---------- */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  background: rgba(30, 30, 30, .88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.drop-overlay.hidden {
+  display: none;
+}
+
+.drop-inner {
+  padding: 40px 60px;
+  border: 2px dashed var(--accent);
+  border-radius: 12px;
+  background: rgba(59, 130, 246, .08);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--accent-hi);
+  pointer-events: none;
+}
+
+/* ---------- params modal responsive tweak ---------- */
+@media (max-width:768px) {
+  .drop-inner {
+    padding: 24px 32px;
+    font-size: 14px;
+  }
+}
