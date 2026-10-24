@@ -553,24 +553,54 @@ export function makeBuiltins(evalStatements) {
         },
 
         sphere(a, node, scope) {
-            const r = Math.abs(numArg(getArg(a, 0, 'r', 1), 1)) || 1e-6;
+            /* --- resolve r (prioritas: r > d > positional) --- */
+            let r = a.named.r;
+            let d = a.named.d;
+            if (r === undefined && a.pos[0] !== undefined) r = a.pos[0];
+            if (r === undefined && d !== undefined) r = numArg(d) / 2;
+            r = Math.abs(numArg(r, 1)) || 1e-6;
+
             const fn = getFnFor(a, scope, r);
             const g = new THREE.SphereGeometry(r, fn, Math.max(2, Math.round(fn / 2)));
             return [makeMesh(g)];
         },
 
         cylinder(a, node, scope) {
-            let h = a.named.h, r = a.named.r, r1 = a.named.r1, r2 = a.named.r2;
-            const p = a.pos;
-            if (p.length >= 1 && h === undefined) h = p[0];
-            if (p.length === 2) { r1 = p[1]; r2 = p[1]; }
-            if (p.length >= 3) { r1 = p[1]; r2 = p[2]; }
-            if (r !== undefined) { if (r1 === undefined) r1 = r; if (r2 === undefined) r2 = r; }
-            if (r1 === undefined) r1 = 1;
-            if (r2 === undefined) r2 = r1;
+            /* --- resolve h --- */
+            let h = a.named.h;
+            if (h === undefined && a.pos[0] !== undefined) h = a.pos[0];
             if (h === undefined) h = 1;
 
-            const fn = getFnFor(a, scope, Math.max(Math.abs(r1 || 0), Math.abs(r2 || 0)));   // ← pakai max radius
+            /* --- resolve r1 / r2 (prioritas: r1/r2 > d1/d2 > r > d > positional) --- */
+            let r1 = a.named.r1;
+            let r2 = a.named.r2;
+            let r = a.named.r;
+            let d = a.named.d;
+            let d1 = a.named.d1;
+            let d2 = a.named.d2;
+
+            /* positional: cylinder(h, r) atau cylinder(h, r1, r2) */
+            if (a.pos.length === 2) { r1 = a.pos[1]; r2 = a.pos[1]; }
+            if (a.pos.length >= 3) { r1 = a.pos[1]; r2 = a.pos[2]; }
+
+            /* r menang atas d */
+            if (r !== undefined) {
+                if (r1 === undefined) r1 = r;
+                if (r2 === undefined) r2 = r;
+            }
+            if (d !== undefined) {
+                const rFromD = numArg(d) / 2;
+                if (r1 === undefined) r1 = rFromD;
+                if (r2 === undefined) r2 = rFromD;
+            }
+            /* d1/d2 menang kalau r1/r2 belum di-set */
+            if (d1 !== undefined && r1 === undefined) r1 = numArg(d1) / 2;
+            if (d2 !== undefined && r2 === undefined) r2 = numArg(d2) / 2;
+
+            if (r1 === undefined) r1 = 1;
+            if (r2 === undefined) r2 = r1;
+
+            const fn = getFnFor(a, scope, Math.max(Math.abs(r1), Math.abs(r2)));
             const height = Math.max(Math.abs(numArg(h, 1)), 1e-6);
             const g = new THREE.CylinderGeometry(
                 Math.max(Math.abs(numArg(r2, 1)), 1e-6),
@@ -582,7 +612,6 @@ export function makeBuiltins(evalStatements) {
             if (a.named.center) g.translate(0, 0, -height / 2);
             return [makeMesh(g)];
         },
-
         polyhedron(a, node) {
             const points = getArg(a, 0, 'points', null);
             const faces = getArg(a, 1, 'faces', null);
@@ -607,7 +636,12 @@ export function makeBuiltins(evalStatements) {
 
         /* ---------- PRIMITIVE 2D ---------- */
         circle(a, node, scope) {
-            const r = Math.abs(numArg(getArg(a, 0, 'r', 1), 1)) || 1e-6;
+            let r = a.named.r;
+            let d = a.named.d;
+            if (r === undefined && a.pos[0] !== undefined) r = a.pos[0];
+            if (r === undefined && d !== undefined) r = numArg(d) / 2;
+            r = Math.abs(numArg(r, 1)) || 1e-6;
+
             const fn = getFnFor(a, scope, r);
             const n = Math.max(3, fn);
             const s = new THREE.Shape();
