@@ -371,7 +371,7 @@ async function importFiles(files) {
             const buffer = await f.arrayBuffer();
             await saveFile(f.name, buffer, f.type || 'model/stl');
             saved++;
-            log('info', `📁 ${f.name} (${(f.size / 1024).toFixed(1)} KB) imported`);
+            log('info', `<i class="fa-solid fa-file"></i> ${f.name} (${(f.size / 1024).toFixed(1)} KB) imported`);
         } catch (err) {
             log('error', `Gagal import '${f.name}': ${err.message}`);
         }
