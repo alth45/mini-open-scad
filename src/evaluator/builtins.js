@@ -5,11 +5,13 @@ import { CONFIG } from '../config.js';
 import {
     makeMesh, is2D, combine2D, shapePoints,
     transformShape2D, collectWorldGeometries,
-    shapeToPolygon, convexHull2D, dedupePoints
+    shapeToPolygon, convexHull2D, dedupePoints,
+    shapeHasCurves, translateShape2D, computeShapesBounds
 } from './geometry.js';
 import { CSG, csgApply, makeBrush } from './csg.js';
 import { findChildrenContext } from '../core/scope.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { getFont, DEFAULT_FONT } from './fonts.js';
 
 
 /* ============================================================
@@ -456,21 +458,21 @@ export function makeBuiltins(evalStatements) {
 
             /* 2D */
             if (kids.every(is2D)) {
-                const shapes = kids.flatMap(k => k.shapes);
-                if (shapes.length === 0) return kids;
-                const bbox = new THREE.Box2();
-                for (const s of shapes) {
-                    for (const p of shapePoints(s, 64)) bbox.expandByPoint(p);
-                }
-                if (bbox.isEmpty()) return kids;
-                const size = bbox.getSize(new THREE.Vector2());
-                const sx = (target[0] > 0 && size.x > 1e-9) ? target[0] / size.x : 1;
-                const sy = (target[1] > 0 && size.y > 1e-9) ? target[1] / size.y : 1;
-                const sFinal = auto ? [Math.max(sx, sy), Math.max(sx, sy)] : [sx, sy];
-                const m = new THREE.Matrix4().makeScale(sFinal[0], sFinal[1], 1);
-                return [transformShape2D({ __shape2d: true, shapes }, m)];
-            }
+                const base = kids[0];
+                if (!base.shapes.length) return [];
 
+                /* Terapkan holes ke SEMUA base shape (penting untuk text — multi-letter) */
+                for (const baseShape of base.shapes) {
+                    for (let i = 1; i < kids.length; i++) {
+                        for (const s of kids[i].shapes) {
+                            try {
+                                baseShape.holes.push(new THREE.Path(shapePoints(s, 64)));
+                            } catch { /* ignore */ }
+                        }
+                    }
+                }
+                return [{ __shape2d: true, shapes: base.shapes }];
+            }
             /* 3D */
             const group = new THREE.Group();
             for (const k of kids) if (k && k.isObject3D) group.add(k);
@@ -641,6 +643,61 @@ export function makeBuiltins(evalStatements) {
                 throw new SCADError('polygon(): butuh minimal 3 titik', node.line);
             const v2 = pts.map(p => new THREE.Vector2(numArg(p[0]), numArg(p[1])));
             return [{ __shape2d: true, shapes: [new THREE.Shape(v2)] }];
+        },
+
+        /* ---------- TEXT (2D) ---------- */
+        text(a, node, scope) {
+            const str = getArg(a, 0, 'text', '');
+            if (typeof str !== 'string') {
+                throw new SCADError('text(): text harus string', node.line);
+            }
+            if (str.length === 0) return [];
+
+            const size = Math.abs(numArg(getArg(a, 1, 'size', 10), 10)) || 10;
+            const fontName = String(getArg(a, 2, 'font', DEFAULT_FONT));
+            const halign = String(a.named.halign || 'left').toLowerCase();
+            const valign = String(a.named.valign || 'baseline').toLowerCase();
+
+            if (a.named.spacing !== undefined && numArg(a.named.spacing, 1) !== 1) {
+                ctx.warn('text(): parameter `spacing` belum didukung, diabaikan.');
+            }
+
+            let shapes;
+            try {
+                const font = getFont(fontName);
+                shapes = font.generateShapes(str, size);
+            } catch (e) {
+                throw new SCADError(`text(): gagal generate shapes: ${e.message}`, node.line);
+            }
+
+            if (!shapes || shapes.length === 0) return [];
+
+            /* --- alignment --- */
+            const box = computeShapesBounds(shapes);
+            if (box.isEmpty()) return [];
+
+            let dx = 0, dy = 0;
+
+            switch (halign) {
+                case 'center': dx = -(box.min.x + box.max.x) / 2; break;
+                case 'right': dx = -box.max.x; break;
+                case 'left':
+                default: dx = -box.min.x; break;
+            }
+
+            switch (valign) {
+                case 'center': dy = -(box.min.y + box.max.y) / 2; break;
+                case 'top': dy = -box.max.y; break;
+                case 'bottom': dy = -box.min.y; break;
+                case 'baseline':
+                default: dy = 0; break;
+            }
+
+            if (dx !== 0 || dy !== 0) {
+                for (const s of shapes) translateShape2D(s, dx, dy);
+            }
+
+            return { __shape2d: true, shapes };
         },
 
         /* ---------- TRANSFORM ---------- */
@@ -921,22 +978,29 @@ export function makeBuiltins(evalStatements) {
         linear_extrude(a, node, scope, ctx) {
             const h = Math.abs(numArg(getArg(a, 0, 'height', 1), 1)) || 1e-6;
             const center = !!a.named.center;
-            const fn = getFnFor(a, scope);
+            const fn = getFnFor(a, scope, null);      // no radius → fallbackFn (32)
             const kids = evalStatements(node.children, scope, ctx);
 
             const shapes = [];
             for (const k of kids) if (is2D(k)) shapes.push(...k.shapes);
             if (shapes.length === 0) {
-                ctx.warn('linear_extrude(): butuh child 2D (circle/square/polygon).');
+                ctx.warn('linear_extrude(): butuh child 2D (circle/square/polygon/text).');
                 return [];
             }
 
             const meshes = [];
             for (const s of shapes) {
                 try {
+                    /* Shapes dengan curve (text, arc) → high res
+                       Shapes polyline (polygon, circle $fn, square) → low res */
+                    const hasCurves = shapeHasCurves(s);
+                    const curveSegments = hasCurves ? Math.max(8, Math.min(fn, 128)) : 1;
+
                     const g = new THREE.ExtrudeGeometry(s, {
-                        depth: h, bevelEnabled: false,
-                        curveSegments: 1,
+                        depth: h,
+                        bevelEnabled: false,
+                        curveSegments,
+                        steps: 1
                     });
                     if (center) g.translate(0, 0, -h / 2);
                     meshes.push(makeMesh(g));

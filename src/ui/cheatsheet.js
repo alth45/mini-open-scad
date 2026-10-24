@@ -42,7 +42,8 @@ const SYNTAX = [
     items: [
       { name: 'circle', code: 'circle(r = 5);\ncircle(r = 5, $fn = 6);   // hexagon', desc: 'Lingkaran / polygon N-sisi' },
       { name: 'square', code: 'square(size = 10, center = true);\nsquare([w, h]);', desc: 'Persegi / kotak 2D' },
-      { name: 'polygon', code: 'polygon(points = [[0,0],[10,0],[5,8]]);', desc: 'Polygon dari array titik' }
+      { name: 'polygon', code: 'polygon(points = [[0,0],[10,0],[5,8]]);', desc: 'Polygon dari array titik' },
+      { name: 'text', code: 'text("Hello", size = 10);\ntext("Hi", size = 10, font = "helvetiker:bold",\n     halign = "center", valign = "center");', desc: 'Teks 2D — pakai linear_extrude untuk 3D' },
     ]
   },
   {

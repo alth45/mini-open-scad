@@ -144,3 +144,60 @@ export function convexHull2D(points) {
   upper.pop();
   return lower.concat(upper);
 }
+
+/* ============================================================
+   Helpers untuk text() — curve detection + translation
+   ============================================================ */
+
+/** Apakah shape mengandung curve non-linear (bezier, ellipse, arc)? */
+export function shapeHasCurves(shape) {
+  for (const c of shape.curves) {
+    if (c.type !== 'LineCurve') return true;
+  }
+  for (const h of shape.holes || []) {
+    for (const c of h.curves) {
+      if (c.type !== 'LineCurve') return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Translate shape (dan holes-nya) in-place dengan (dx, dy).
+ * Hanya modifikasi control points — struktur curve tetap utuh.
+ */
+export function translateShape2D(shape, dx, dy) {
+  if (dx === 0 && dy === 0) return;
+  const d = new THREE.Vector2(dx, dy);
+
+  const moveCurve = (c) => {
+    if (c.v0) c.v0.add(d);
+    if (c.v1) c.v1.add(d);
+    if (c.v2) c.v2.add(d);
+    if (c.v3) c.v3.add(d);
+  };
+
+  for (const c of shape.curves) moveCurve(c);
+  for (const h of shape.holes || []) {
+    for (const c of h.curves) moveCurve(c);
+  }
+}
+
+/**
+ * Bounding box gabungan dari sekumpulan Shape (termasuk holes).
+ * Low-res sampling (divisions=16) untuk kecepatan.
+ */
+export function computeShapesBounds(shapes, divisions = 16) {
+  const box = new THREE.Box2();
+  const addCurvePoints = (curve) => {
+    const pts = curve.getPoints(curve.type === 'LineCurve' ? 1 : divisions);
+    for (const p of pts) box.expandByPoint(p);
+  };
+  for (const shape of shapes) {
+    for (const c of shape.curves) addCurvePoints(c);
+    for (const h of shape.holes || []) {
+      for (const c of h.curves) addCurvePoints(c);
+    }
+  }
+  return box;
+}

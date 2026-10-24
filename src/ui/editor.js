@@ -2,7 +2,7 @@ import { escapeHtml } from '../utils.js';
 
 const HL_KEYWORDS = new Set([
     'cube', 'sphere', 'cylinder', 'polyhedron',
-    'circle', 'square', 'polygon',
+    'circle', 'square', 'polygon', 'text',
     'translate', 'rotate', 'scale', 'mirror', 'color',
     'union', 'difference', 'intersection', 'hull',
     'linear_extrude', 'rotate_extrude',
