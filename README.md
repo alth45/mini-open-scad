@@ -96,6 +96,7 @@ difference() {
 > Tips: tekan `Ctrl+Enter` untuk render kapan saja.
 
 ### 2. Slider parameter 
+![Screenshot App](docs/images/ss2.png)
 
 ```c
 // @param size  {slider 10 60 30} Box size
@@ -107,6 +108,8 @@ color(color)
 Slider muncul otomatis di panel kanan. Geser → model update real-time.
 
 ### 3. Vase dengan rotate_extrude
+
+![Screenshot App](docs/images/ss3.png)
 
 ```c
 $fn = 96;
@@ -120,6 +123,7 @@ rotate_extrude(angle = 360)
 ```
 ### 4. Rounded Cube dengan `offset`
 
+![Screenshot App](docs/images/ss4.png)
 ```c 
 $fn = 32;
 offset(r = 3, $fn = 16)
