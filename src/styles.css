@@ -667,3 +667,140 @@ button:disabled {
   vertical-align: super;
   margin-left: 2px;
 }
+
+/* ---------- PROJECT TABS ---------- */
+#tabbar-desktop {
+  flex: 0 0 auto;
+  height: 36px;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 0 8px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+#tabbar-desktop::-webkit-scrollbar {
+  height: 0;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px 0 12px;
+  height: 30px;
+  min-width: 100px;
+  max-width: 180px;
+  background: var(--panel);
+  color: var(--muted);
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.tab:hover {
+  background: #2d2d30;
+  color: var(--text);
+}
+
+.tab.active {
+  background: var(--bg);
+  color: var(--text);
+  border-color: var(--border);
+  height: 32px;
+}
+
+.tab-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-close {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tab-close:hover:not(:disabled) {
+  background: #555;
+  color: #fff;
+}
+
+.tab-close:disabled {
+  opacity: .3;
+  cursor: not-allowed;
+}
+
+.tab-rename-input {
+  width: 100%;
+  padding: 2px 4px;
+  background: #1a1a1a;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--text);
+  font: 12px inherit;
+  outline: none;
+}
+
+.tab-add {
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 300;
+  flex-shrink: 0;
+  border-radius: 4px;
+}
+
+.tab-add:hover {
+  background: #2d2d30;
+  color: var(--text);
+}
+
+@media (max-width:768px) {
+  #tabbar-desktop {
+    height: 32px;
+    padding: 0 4px;
+  }
+
+  .tab {
+    min-width: 80px;
+    max-width: 120px;
+    font-size: 11px;
+    height: 28px;
+  }
+
+  .tab.active {
+    height: 30px;
+  }
+
+  .tab-add {
+    width: 26px;
+    height: 28px;
+    font-size: 16px;
+  }
+}

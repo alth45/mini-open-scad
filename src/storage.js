@@ -1,23 +1,45 @@
-import { CONFIG } from './config.js';
+const OLD_KEY = 'mini-openscad-v1';
+const NEW_KEY = 'mini-openscad-v2';
 
-export function saveToStorage(code, autoRender, paramValues = {}) {
+export function saveTabs(tabs, activeId) {
   try {
-    localStorage.setItem(CONFIG.storageKey, JSON.stringify({ code, autoRender, paramValues }));
-  } catch { /* private mode */ }
+    localStorage.setItem(NEW_KEY, JSON.stringify({ tabs, activeId }));
+  } catch { /* quota / private */ }
 }
 
-export function loadFromStorage() {
+export function loadTabs() {
   try {
-    const raw = localStorage.getItem(CONFIG.storageKey);
-    if (!raw) return null;
-    const data = JSON.parse(raw);
-    if (typeof data.code !== 'string') return null;
-    return {
-      code: data.code,
-      autoRender: typeof data.autoRender === 'boolean' ? data.autoRender : true,
-      paramValues: (data.paramValues && typeof data.paramValues === 'object')
-        ? data.paramValues : {}
-    };
+    /* versi baru */
+    const raw = localStorage.getItem(NEW_KEY);
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data && Array.isArray(data.tabs) && data.tabs.length > 0) return data;
+    }
+
+    /* migrasi dari v1 (single project) */
+    const oldRaw = localStorage.getItem(OLD_KEY);
+    if (oldRaw) {
+      const old = JSON.parse(oldRaw);
+      if (typeof old.code === 'string') {
+        const id = 'tab_migrated_' + Date.now().toString(36);
+        const migrated = {
+          tabs: [{
+            id,
+            name: 'Project 1',
+            code: old.code,
+            paramValues: (old.paramValues && typeof old.paramValues === 'object')
+              ? old.paramValues : {},
+            autoRender: typeof old.autoRender === 'boolean' ? old.autoRender : true
+          }],
+          activeId: id
+        };
+        localStorage.removeItem(OLD_KEY);
+        localStorage.setItem(NEW_KEY, JSON.stringify(migrated));
+        return migrated;
+      }
+    }
+
+    return null;
   } catch {
     return null;
   }
