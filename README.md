@@ -82,6 +82,8 @@ Output ada di `dist/` — folder static yang bisa di-deploy ke mana saja:
 ## 📖 Cara Pakai
 
 ### 1. Hellow world nya CAD (Cube dengan lubang)
+
+![Screenshot App](docs/images/ss.png)
 ```c
 // Kubus berlubang
 $fn = 64;
