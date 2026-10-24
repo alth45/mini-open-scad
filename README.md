@@ -96,7 +96,7 @@ difference() {
 > Tips: tekan `Ctrl+Enter` untuk render kapan saja.
 
 ### 2. Slider parameter 
-![Screenshot App](docs/images/ss2.png)
+![Slider parameter](docs/images/ss2.PNG)
 
 ```c
 // @param size  {slider 10 60 30} Box size
