@@ -10,33 +10,62 @@ import { isOpenTypeFont } from './opentype-fonts.js';
 
 /* ---------- EvalContext ---------- */
 export class EvalContext {
-    constructor(files = null) {
+    constructor(files = null, scadCache = null, timeoutMs = CONFIG.evalTimeoutMs) {
+        this.timeoutMs = Math.max(100, Math.min(CONFIG.maxTimeoutMs, timeoutMs));
         this.start = performance.now();
-        this.deadline = this.start + CONFIG.evalTimeoutMs;
+        this.deadline = this.start + this.timeoutMs;
         this.warnings = [];
         this.warned = new Set();
         this.echoes = [];
         this.files = files || {};
-        this.profiling = true;          // enable by default
+        this.scadCache = scadCache || new Map();
+        this.includeStack = new Set();
+        this.moduleStack = [];         // stack nama module (untuk recursion detection)
+        this.currentOp = null;         // { name, line } untuk error context
+        this.profiling = true;
         this.opTimings = Object.create(null);
-        this._otStates = Object.create(null);   // ← NEW: cache per-font
-
+        this._warned50 = false;
+        this._warned75 = false;
     }
 
-
-    getFileBuffer(name) {
-        return this.files[name] || null;
-    }
-
-
+    getFileBuffer(name) { return this.files[name] || null; }
+    getScadAst(name) { return this.scadCache.get(name) || null; }
 
     check() {
-        if (performance.now() > this.deadline) {
+        const now = performance.now();
+        const elapsed = now - this.start;
+        const pct = elapsed / this.timeoutMs;
+
+        /* --- Progressive warnings --- */
+        if (pct >= 0.75 && !this._warned75) {
+            this._warned75 = true;
+            this.warn(`Render lambat: ${Math.round(pct * 100)}% waktu habis (${Math.round(elapsed)}/${this.timeoutMs} ms). Pertimbangkan naikkan $maxTime.`);
+        } else if (pct >= 0.5 && !this._warned50) {
+            this._warned50 = true;
+            this.warn(`Render sudah ${Math.round(pct * 100)}% waktu habis (${Math.round(elapsed)}/${this.timeoutMs} ms).`);
+        }
+
+        /* --- Timeout --- */
+        if (elapsed > this.timeoutMs) {
+            const opInfo = this.currentOp
+                ? ` saat '${this.currentOp.name}'${this.currentOp.line ? ` (line ${this.currentOp.line})` : ''}`
+                : '';
+            const recent = this.moduleStack.slice(-5).map(s => s.name).join(' → ');
+            const chainInfo = recent ? `\n   Di module: ... → ${chain}` : '';
+            const hint =
+                `Coba: (1) naikkan $maxTime = ${this.timeoutMs * 2}; di baris atas, ` +
+                `(2) kurangi $fn (sekarang ${this._currentFn()}), ` +
+                `(3) perkecil loop, atau (4) klik Cancel.` +
+                chainInfo;
             throw new SCADError(
-                `Evaluation timeout (> ${CONFIG.evalTimeoutMs} ms). Loop terlalu besar?`,
-                0, 0
+                `Evaluation timeout (${Math.round(elapsed)} ms > ${this.timeoutMs} ms)${opInfo}`,
+                0, 0, hint
             );
         }
+    }
+
+    _currentFn() {
+        return this._fnValue === undefined ? CONFIG.defaultFn : this._fnValue;
     }
 
     warn(msg) {
@@ -47,9 +76,12 @@ export class EvalContext {
 
     log(msg) { this.echoes.push(msg); }
 
-    /** Ukur waktu eksekusi fn() dan catat ke statistik op. */
-    trackOp(name, fn) {
+    trackOp(name, fn, line = 0) {
+        this.check();
         if (!this.profiling) return fn();
+
+        const prevOp = this.currentOp;
+        this.currentOp = { name, line };
         const t0 = performance.now();
         try {
             return fn();
@@ -60,6 +92,7 @@ export class EvalContext {
             cur.count += 1;
             if (dt > cur.max) cur.max = dt;
             this.opTimings[name] = cur;
+            this.currentOp = prevOp;
         }
     }
 }
@@ -361,15 +394,29 @@ function evalArgsNode(argsNode, scope, ctx) {
 }
 
 /* ---------- Statements ---------- */
+
 export function evalStatements(stmts, scope, ctx) {
     let out = [];
-    for (const st of stmts) {
-        ctx.check();
-        const res = evalStatement(st, scope, ctx);
-        if (!res || res.length === 0) continue;
-        if (st.modifier === '*') continue;
-        if (st.modifier === '!') { out = res.slice(); continue; }
-        out = out.concat(res);
+    try {
+        for (const st of stmts) {
+            ctx.check();
+            const res = evalStatement(st, scope, ctx);
+            if (!res || res.length === 0) continue;
+            if (st.modifier === '*') continue;
+            if (st.modifier === '!') { out = res.slice(); continue; }
+            out = out.concat(res);
+        }
+    } catch (e) {
+        if (e instanceof RangeError && /call stack/i.test(e.message)) {
+            const chain = ctx.moduleStack.slice(-5).map(s => s.name).join(' → ');
+            throw new SCADError(
+                'Infinite recursion terdeteksi (JS call stack overflow)',
+                0, 0,
+                (chain ? `Rantai: ... → ${chain}\n` : '') +
+                'Pastikan module punya kondisi berhenti.'
+            );
+        }
+        throw e;
     }
     return out;
 }
@@ -443,29 +490,99 @@ export function evalStatement(st, scope, ctx) {
             return out;
         }
 
+        case 'Include': {
+            const file = st.file;
+
+            /* Cycle detection runtime */
+            if (ctx.includeStack.has(file)) {
+                ctx.warn(`Circular include terdeteksi: '${file}' — diabaikan`);
+                return null;
+            }
+
+            const entry = ctx.getScadAst(file);
+            if (!entry) {
+                throw new SCADError(
+                    `include: file '${file}' belum dimuat`,
+                    st.line, 0,
+                    'File .scad harus di-import lewat menu 📁 Files sebelum dipakai'
+                );
+            }
+            if (entry.error || !entry.ast) {
+                throw new SCADError(
+                    `include: gagal parse '${file}': ${entry.error || 'unknown'}`,
+                    st.line
+                );
+            }
+
+            ctx.includeStack.add(file);
+            try {
+                if (st.isUse) {
+                    /* use — hanya module & function, dan rekursif ke use-inner */
+                    for (const innerSt of entry.ast.body) {
+                        if (innerSt.type === 'Include' && innerSt.isUse) {
+                            evalStatement(innerSt, scope, ctx);
+                        }
+                    }
+                    for (const innerSt of entry.ast.body) {
+                        if (innerSt.type === 'ModuleDef') {
+                            scope.modules.set(innerSt.name, innerSt);
+                        } else if (innerSt.type === 'FunctionDef') {
+                            scope.funcs.set(innerSt.name, innerSt);
+                        }
+                    }
+                    return null;
+                }
+
+                /* include — eval semua statement di current scope */
+                return evalStatements(entry.ast.body, scope, ctx);
+            } finally {
+                ctx.includeStack.delete(file);
+            }
+        }
+
         case 'ModuleCall': {
             const builtin = BUILTINS[st.name];
             if (builtin) {
                 const args = evalArgsNode(st.args, scope, ctx);
-                return ctx.trackOp(st.name, () => builtin(args, st, scope, ctx)) || [];
+                /* Track $fn terakhir untuk hint error */
+                if (st.name === 'sphere' || st.name === 'cylinder' || st.name === 'circle') {
+                    const f = (args.named && args.named.$fn) || scope.get('$fn');
+                    if (f !== undefined) ctx._fnValue = f;
+                }
+                return ctx.trackOp(st.name, () => builtin(args, st, scope, ctx), st.line) || [];
             }
 
             const userMod = scope.getModule(st.name);
             if (userMod) {
+                /* ---- recursion detection ---- */
+                if (ctx.moduleStack.length >= 200) {
+                    const chain = ctx.moduleStack.slice(-5).map(s => s.name).join(' → ');
+                    throw new SCADError(
+                        `Infinite recursion terdeteksi (kedalaman > 200)`,
+                        st.line, 0,
+                        `Rantai: ... → ${chain} → ${st.name}\n` +
+                        `Pastikan module '${st.name}' punya kondisi berhenti (if (n > 0) ...) atau tidak memanggil dirinya tanpa batas.`
+                    );
+                }
+
                 const args = evalArgsNode(st.args, scope, ctx);
                 const modScope = new Scope(scope);
                 bindParams(userMod.params, args, modScope, scope, ctx);
 
-                // Simpan konteks children — dipakai oleh children() builtin
                 modScope.childrenContext = {
-                    children: st.children,   // array AST statement
-                    callerScope: scope       // scope di call site
+                    children: st.children,
+                    callerScope: scope
                 };
 
-                return evalStatements(userMod.body, modScope, ctx);
+                ctx.moduleStack.push({ name: st.name, line: st.line });
+                try {
+                    return evalStatements(userMod.body, modScope, ctx);
+                } finally {
+                    ctx.moduleStack.pop();
+                }
             }
 
-            // throw new SCADError(`Module tidak dikenal: '${st.name}'`, st.line);
+            /* Suggestion untuk module tidak dikenal (existing) */
             const candidates = new Set(Object.keys(BUILTINS));
             scope.collectModuleNames(candidates);
             const sug = suggestName(st.name, candidates);

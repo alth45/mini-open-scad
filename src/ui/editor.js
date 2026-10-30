@@ -5,9 +5,10 @@ const HL_KEYWORDS = new Set([
     'circle', 'square', 'polygon', 'text',
     'translate', 'rotate', 'scale', 'mirror', 'color',
     'union', 'difference', 'intersection', 'hull',
-    'linear_extrude', 'rotate_extrude',
+    'linear_extrude', 'rotate_extrude', 'offset', 'minkowski', 'resize', 'multmatrix',
     'for', 'if', 'else', 'module', 'function',
-    'true', 'false', 'undef', 'include', 'use'
+    'include', 'use',
+    'true', 'false', 'undef'
 ]);
 
 function highlightCode(src) {
@@ -92,6 +93,12 @@ export function createEditor({ editorEl, highlightEl, gutterEl, onChange, onSave
         syncScroll();
     }
 
+    /* ---- value-change listeners (untuk find-replace dkk) ---- */
+    const valueListeners = new Set();
+    function notifyValueChange() {
+        for (const fn of valueListeners) fn(editorEl.value);
+    }
+
     /* ---------- history ---------- */
     const MAX_HISTORY = 200;
     const DEBOUNCE_MS = 400;
@@ -149,6 +156,7 @@ export function createEditor({ editorEl, highlightEl, gutterEl, onChange, onSave
             applying = false;
         }
         onChange?.(snap.value);
+        notifyValueChange();
         notifyHistory();
     }
 
@@ -174,6 +182,7 @@ export function createEditor({ editorEl, highlightEl, gutterEl, onChange, onSave
         if (applying) return;
         refresh();
         onChange?.(editorEl.value);
+        notifyValueChange();
         scheduleCommit();
     });
 
@@ -212,6 +221,7 @@ export function createEditor({ editorEl, highlightEl, gutterEl, onChange, onSave
             editorEl.selectionStart = editorEl.selectionEnd = start + 2;
             refresh();
             onChange?.(editorEl.value);
+            notifyValueChange();
             scheduleCommit();
             return;
         }
@@ -234,6 +244,7 @@ export function createEditor({ editorEl, highlightEl, gutterEl, onChange, onSave
          */
         setValue(v, { recordHistory = true } = {}) {
             if (historyTimer) commitHistory();     // flush pending
+            notifyValueChange();
             applying = true;
             try {
                 editorEl.value = v;
@@ -256,6 +267,12 @@ export function createEditor({ editorEl, highlightEl, gutterEl, onChange, onSave
         undo,
         redo,
         canUndo: () => history.index > 0,
-        canRedo: () => history.index < history.stack.length - 1
+        canRedo: () => history.index < history.stack.length - 1,
+
+        /* ---------- ui luar bisa subscribe changes ---------- */
+        onValueChange(fn) {
+            valueListeners.add(fn);
+            return () => valueListeners.delete(fn);
+        },
     };
 }

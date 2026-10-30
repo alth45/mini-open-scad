@@ -135,6 +135,21 @@ export class Parser {
             if (kw === 'let' && this.isOp('(', 1)) {
                 return this.parseLetStatement(modifier, startTok);
             }
+            /* include / use */
+            if (kw === 'include' || kw === 'use') {
+                this.advance();
+                const isUse = kw === 'use';
+                let file;
+                if (this.cur.type === 'file') {
+                    file = this.advance().value;
+                } else if (this.cur.type === 'string') {
+                    file = this.advance().value;
+                } else {
+                    this.error(`${kw}: diharapkan <file> atau "file"`);
+                }
+                this.expect(';', `Diharapkan ';' setelah ${kw}`);
+                return { type: 'Include', file, isUse, line: startTok.line };
+            }
 
             if (this.isOp('=', 1)) {
                 const name = this.advance().value;

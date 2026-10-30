@@ -12,6 +12,13 @@ const SHORTCUTS = {
     { keys: ['Esc'], desc: 'Tutup modal / cancel' },
     { keys: ['F5'], desc: 'Preview mode — cepat ($preview = true)' },
     { keys: ['F6'], desc: 'Render mode — kualitas final ($preview = false)' },
+    { keys: ['F'], desc: 'Toggle fullscreen viewport' },
+    { keys: ['Ctrl', 'F'], desc: 'Find (buka find bar)' },
+    { keys: ['Ctrl', 'H'], desc: 'Find & Replace' },
+    { keys: ['Ctrl', 'G'], desc: 'Go to line' },
+    { keys: ['Enter'], desc: 'Next match (di find bar)' },
+    { keys: ['Shift', 'Enter'], desc: 'Previous match (di find bar)' },
+    { keys: ['Esc'], desc: 'Cancel render (saat rendering) / close modal' },
   ],
   editor: [
     { keys: ['Tab'], desc: 'Indent 2 spasi' },
@@ -85,6 +92,8 @@ const SYNTAX = [
       { name: 'if / else', code: 'if (cond) a();\nif (cond) a(); else b();', desc: 'Kondisional' },
       { name: 'module', code: 'module name(args) { body; }\nname(arg);', desc: 'Fungsi penggambar (bisa dipanggil berulang)' },
       { name: 'function', code: 'function f(x) = x * 2;\nf(5);   // 10', desc: 'Fungsi return nilai' },
+      { name: 'include', code: 'include <lib.scad>;\ninclude "file.scad";', desc: 'Inline semua (variables + modules) dari file' },
+      { name: 'use', code: 'use <lib.scad>;\n// hanya module + function tersedia', desc: 'Import module/function tanpa variables' },
       { name: 'children', code: 'module wrapper() { children(); }\nwrapper() cube(10);', desc: 'Akses child yang di-pass (children(i), children([0:1]))' },
       { name: '$children', code: 'echo("total:", $children);', desc: 'Jumlah child yang diterima module' }
     ]
@@ -108,6 +117,7 @@ const SYNTAX = [
       { name: '! (show only)', code: '!cube(10);  // hanya ini yang tampil', desc: 'Isolasi objek untuk debug' },
       { name: '$fn', code: '$fn = 64;              // fixed segments\n$fn = 0;               // auto — pakai $fa/$fs\nsphere(r = 5, $fn = 32);  // override per-call', desc: 'Fixed segment count. 0 = auto' },
       { name: '$fa / $fs', code: '$fa = 12;          // max angle per segment (deg)\n$fs = 2;           // min arc length (mm)\n// n = min(360/$fa, 2πr/$fs), clamp [5, 512]', desc: 'Auto-tessellation (default 12/2)' },
+      { name: '$maxTime', code: '$maxTime = 10000;   // timeout 10 detik\n$maxTime = 0;       // fallback ke default', desc: 'Batas waktu evaluasi (ms) — default 5000, max 60000' },
       { name: '$preview', code: '$preview = true;    // fast (F5)\n$preview = false;   // final (F6)\n$fn = $preview ? 24 : 96;', desc: 'Boolean mode — preview vs render' },
     ]
   },

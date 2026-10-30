@@ -71,6 +71,29 @@ export function tokenize(src) {
       i += 2; col += 2; continue;
     }
 
+        /* include <filename> / use <filename> — raw angle bracket */
+    if (c === '<') {
+      const last = tokens[tokens.length - 1];
+      if (last && last.type === 'ident' && (last.value === 'include' || last.value === 'use')) {
+        const sl = line, sc = col;
+        i++; col++;
+        let s = '';
+        while (i < n && src[i] !== '>') {
+          if (src[i] === '\n') {
+            throw new SCADError('Filename include tidak boleh mengandung newline', line, col);
+          }
+          s += src[i];
+          i++; col++;
+        }
+        if (i >= n) {
+          throw new SCADError("Diharapkan '>' untuk menutup filename", sl, sc);
+        }
+        i++; col++;
+        tokens.push({ type: 'file', value: s.trim(), line: sl, col: sc });
+        continue;
+      }
+    }
+
     if ('+-*/%^<>=!?:;,.(){}[]#'.includes(c)) {
       tokens.push({ type: 'op', value: c, line, col });
       i++; col++; continue;

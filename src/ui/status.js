@@ -2,9 +2,12 @@ const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
 const toastEl = document.getElementById('toast');
 
-export function setStatus(kind, text) {
+const btnCancelRender = document.getElementById('btnCancelRender');
+
+export function setStatus(kind, text, showCancel = false) {
   statusDot.className = 'dot ' + kind;
   statusText.textContent = text;
+  btnCancelRender.classList.toggle('hidden', !showCancel);
 }
 
 let toastTimer = null;

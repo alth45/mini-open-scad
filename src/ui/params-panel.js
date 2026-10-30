@@ -1,6 +1,7 @@
 export function createParamsPanel({ panelEl, bodyEl, titleEl, resetBtn, closeBtn, onChange }) {
     let params = [];
     let values = {};
+    const controls = new Map();
 
     function row(label, child) {
         const row = document.createElement('div');
@@ -38,6 +39,7 @@ export function createParamsPanel({ panelEl, bodyEl, titleEl, resetBtn, closeBtn
                 });
                 wrap.appendChild(input);
                 wrap.appendChild(num);
+                controls.set(p.name, {update(nv){input.value=nv; num.textContent=nv;}});
                 return wrap;
             }
             case 'number':
@@ -99,6 +101,7 @@ export function createParamsPanel({ panelEl, bodyEl, titleEl, resetBtn, closeBtn
 
     function render() {
         bodyEl.innerHTML = '';
+        controls.clear();
         if (params.length === 0) {
             const empty = document.createElement('div');
             empty.className = 'params-empty';
@@ -158,6 +161,10 @@ export function createParamsPanel({ panelEl, bodyEl, titleEl, resetBtn, closeBtn
             params = newParams;
             values = { ...newValues };
             render();
+        },
+        setValue(name, value) {
+            values[name] = value;
+            controls.get(name)?.update(value);
         },
         isHidden: () => panelEl.classList.contains('hidden'),
         show: () => panelEl.classList.remove('hidden'),

@@ -3,5 +3,11 @@ export const state = {
   lastSuccess: null,
   paramValues: {},
   paramsPanelShownOnce: false,
-  previewMode: true
+  previewMode: true,
+  section: {
+    enabled: false,
+    axis: 'z',
+    position: 0,
+    flipped: false,
+  },
 };

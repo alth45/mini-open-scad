@@ -56,7 +56,9 @@
             <button id="btnAutoRender" class="toggle-on" title="Auto-render saat idle"><i class="fa-solid fa-bolt"></i>
                 <span class="lbl">Auto</span></button>
             <div id="statusWrap">
-                <div id="statusDot" class="dot ready"></div><span id="statusText">Ready</span>
+                <div id="statusDot" class="dot ready"></div>
+                <span id="statusText">Ready</span>
+                <button id="btnCancelRender" class="hidden" title="Batalkan render (Esc)">✕</button>
             </div>
         </div>
     </div>
@@ -74,6 +76,7 @@
                 <div id="gutter">1</div>
                 <div id="codeArea">
                     <pre id="highlight" aria-hidden="true"></pre>
+                    <pre id="findMatches" aria-hidden="true"></pre>
                     <textarea id="editor" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"
                         wrap="off"></textarea>
                 </div>
@@ -187,10 +190,11 @@
                 <button id="filesClose" class="modal-x">✕</button>
             </div>
             <div class="modal-body">
-                <p>Import STL via tombol atau drag-drop file <code>.stl</code> ke viewport 3D.</p>
+                <p>Import file <code>.stl</code> (mesh) atau <code>.scad</code> (library) via tombol, atau drag-drop ke
+                    viewport 3D.</p>
                 <button id="filesPick" class="primary" style="margin-bottom:14px"><i
                         class="fa-solid fa-file-arrow-up"></i> Choose STL File…</button>
-                <input type="file" id="filesInput" accept=".stl" hidden>
+                <input type="file" id="filesInput" accept=".stl,.scad" hidden>
                 <div id="filesList" class="files-list"></div>
             </div>
         </div>

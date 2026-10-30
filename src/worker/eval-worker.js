@@ -2,9 +2,57 @@ import { buildModel, serializeModel } from '../viewer/model.js';
 import { loadFiles } from '../files/file-store.js';
 import { extractImportNames } from '../core/ast-utils.js';
 import { preloadOpenTypeFonts } from '../evaluator/opentype-fonts.js';
+import { extractScadImports } from '../core/ast-utils.js';
+import { tokenize } from '../core/tokenizer.js';
+import { Parser } from '../core/parser.js';
 
 
 console.log('[eval-worker] module imports resolved');
+
+/* ============================================================
+   Pre-load semua file .scad yang direferensikan (rekursif)
+   ============================================================ */
+async function loadScadTree(code, cache) {
+    let userAst;
+    try {
+        const tokens = tokenize(code);
+        userAst = new Parser(tokens).parseProgram();
+    } catch {
+        return;   /* syntax error di user code — biar buildModel yang handle */
+    }
+
+    const visited = new Set();
+    await loadScadImportsRecursive(userAst, cache, visited);
+}
+
+async function loadScadImportsRecursive(ast, cache, visited) {
+    const imports = extractScadImports(ast);
+    for (const file of imports) {
+        if (visited.has(file) || cache.has(file)) continue;
+        visited.add(file);
+
+        let entry;
+        try {
+            const files = await loadFiles([file]);
+            const buf = files[file];
+            if (!buf) {
+                entry = { ast: null, error: 'File tidak ditemukan di storage' };
+            } else {
+                const text = new TextDecoder().decode(buf);
+                const tokens = tokenize(text);
+                const innerAst = new Parser(tokens).parseProgram();
+                entry = { ast: innerAst, error: null };
+            }
+        } catch (e) {
+            entry = { ast: null, error: e.message || String(e) };
+        }
+        cache.set(file, entry);
+
+        if (entry.ast) {
+            await loadScadImportsRecursive(entry.ast, cache, visited);
+        }
+    }
+}
 
 self.onmessage = async (e) => {
     const { code, paramValues, previewMode } = e.data || {};
@@ -23,7 +71,11 @@ self.onmessage = async (e) => {
         const importNames = extractImportNames(code);
         const files = importNames.length > 0 ? await loadFiles(importNames) : {};
 
-        const result = buildModel(code, paramValues, files, previewMode);
+        /* Pre-load semua .scad yang direferensikan include/use */
+        const scadCache = new Map();
+        await loadScadTree(code, scadCache);
+
+        const result = buildModel(code, paramValues, files, previewMode, scadCache);
 
         const transferables = [];
         for (const m of result.meshes) {

@@ -3,10 +3,11 @@ import { tokenize } from '../core/tokenizer.js';
 import { Parser } from '../core/parser.js';
 import { EvalContext, makeRootScope, evalStatements } from '../evaluator/index.js';
 import { applyParams } from '../evaluator/params.js';
+import { CONFIG } from '../config.js';
 /**
  * Compile OpenSCAD source → THREE.Group + stats. Murni (tidak menyentuh scene).
  */
-export function buildModel(code, paramValues, files = null, previewMode= true) {
+export function buildModel(code, paramValues, files = null, previewMode = true, scadCache = null) {
     const tStart = performance.now();
 
     /* --- tokenize --- */
@@ -22,8 +23,11 @@ export function buildModel(code, paramValues, files = null, previewMode= true) {
     /* --- apply params --- */
     if (paramValues) applyParams(ast, paramValues);
 
+    /* --- scan $maxTime --- */
+    const userTimeout = scanMaxTime(ast, CONFIG.evalTimeoutMs);
+
     /* --- eval --- */
-    const ctx = new EvalContext(files);
+    const ctx = new EvalContext(files, scadCache, userTimeout);
     const rootScope = makeRootScope(paramValues, previewMode);
 
     const t2 = performance.now();
@@ -56,7 +60,7 @@ export function buildModel(code, paramValues, files = null, previewMode= true) {
     });
     const tStats = performance.now() - t3;
 
-    /* --- serialize (untuk worker) --- */
+    /* --- serialize --- */
     const t4 = performance.now();
     const meshes = serializeModel(root);
     const tSerialize = performance.now() - t4;
@@ -77,8 +81,20 @@ export function buildModel(code, paramValues, files = null, previewMode= true) {
         vertexCount,
         warnings,
         echoes: ctx.echoes || [],
-        meshes   // sudah diserialisasi — dipakai worker
+        meshes
     };
+}
+
+/** Scan AST untuk `$maxTime = N;` top-level dengan literal number. */
+function scanMaxTime(ast, defaultMs) {
+    for (const st of ast.body) {
+        if (st.type === 'Assignment' && st.name === '$maxTime') {
+            if (st.value && st.value.type === 'Literal' && typeof st.value.value === 'number') {
+                return Math.max(100, Math.min(CONFIG.maxTimeoutMs, st.value.value));
+            }
+        }
+    }
+    return defaultMs;
 }
 
 /* ============================================================

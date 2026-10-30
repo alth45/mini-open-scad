@@ -3,6 +3,7 @@
    PENTING: new Worker(new URL(...)) HARUS satu ekspresi
    supaya Vite bisa bundle worker di production build.
    ============================================================ */
+import { CONFIG } from '../config.js';
 
 export function createWorkerClient() {
     if (typeof Worker === 'undefined') {
@@ -55,18 +56,24 @@ export function createWorkerClient() {
                 let watchdog = null;
 
                 const startWatchdog = () => {
+                    /* Watchdog harus lebih besar dari timeout internal worker
+                       (maxTimeoutMs = 60s) + buffer untuk serialisasi + transfer */
+                    const watchdogMs = CONFIG.maxTimeoutMs + 5000;   // 65s
                     watchdog = setTimeout(() => {
-                        console.error('[worker] TIMEOUT — tidak ada balasan dalam 15s setelah ready');
+                        console.error(`[worker] WATCHDOG TIMEOUT — tidak ada balasan dalam ${watchdogMs}ms`);
                         finish();
                         reject({
                             name: 'WorkerTimeoutError',
-                            message: 'Worker timeout setelah ready.',
+                            message:
+                                `Worker tidak membalas dalam ${Math.round(watchdogMs / 1000)} detik. ` +
+                                `Kemungkinan: (1) render sangat berat dan $maxTime besar, ` +
+                                `(2) worker hang karena bug, atau (3) browser freeze. ` +
+                                `Coba Cancel (Esc) lalu render ulang dengan $fn lebih rendah.`,
                             line: 0,
                             isScad: false
                         });
-                    }, 15000);
+                    }, watchdogMs);
                 };
-
                 const finish = () => {
                     if (settled) return;
                     settled = true;
@@ -106,7 +113,10 @@ export function createWorkerClient() {
                 };
             });
         },
+        cancel() {
+            cancelPending('User cancelled');
+        },
+        dispose() { cancelPending('Disposed'); },
 
-        dispose() { cancelPending('Disposed'); }
     };
 }
