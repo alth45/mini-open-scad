@@ -12,6 +12,18 @@
   --warn: #eab308;
   --err: #ef4444;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    /* theme-aware tokens (dipakai juga di light theme) */
+  --btn-bg: #2d2d30;
+  --btn-hover: #37373b;
+  --code-bg: #1a1a1a;
+  --scrollbar: #3a3a3d;
+  --scrollbar-hover: #555;
+  --overlay-bg: rgba(0, 0, 0, .35);
+  --viewport-bg: #141414;
+  --muted-faint: #5a5a5a;
+  --muted-dim: #6a6a6a;
+  --modal-overlay: rgba(0, 0, 0, .6);
+  --card-subtle: rgba(0, 0, 0, .25);
 }
 
 * {
@@ -140,7 +152,7 @@ button,
 select {
   font: inherit;
   color: var(--text);
-  background: #2d2d30;
+  background: var(--btn-bg);
   border: 1px solid var(--border-2);
   border-radius: 6px;
   padding: 6px 11px;
@@ -151,7 +163,7 @@ select {
 
 button:hover,
 select:hover {
-  background: #37373b;
+  background: var(--btn-hover);
   border-color: #4a4a50;
 }
 
@@ -285,17 +297,52 @@ button:disabled {
 
 #gutter {
   flex: 0 0 auto;
-  width: 46px;
-  padding: 10px 8px 10px 0;
-  text-align: right;
+  width: 56px;
+  padding: 10px 0 10px 0;
   font: 13px/1.55 var(--mono);
-  color: #5a5a5a;
-  background: #1a1a1a;
+  color: var(--muted-faint);
+  background: var(--code-bg);
   border-right: 1px solid var(--border);
   overflow: hidden;
   user-select: none;
   white-space: pre;
   tab-size: 2;
+}
+
+.gutter-line {
+  display: flex;
+  align-items: center;
+  height: 20.15px;
+  line-height: 20.15px;
+}
+
+.gutter-fold {
+  flex: 0 0 14px;
+  text-align: center;
+  font-size: 10px;
+  color: transparent;
+  cursor: default;
+  user-select: none;
+  line-height: 20.15px;
+}
+
+.gutter-fold.can-fold {
+  color: var(--muted-faint);
+  cursor: pointer;
+}
+
+.gutter-fold.can-fold:hover {
+  color: var(--text);
+}
+
+.gutter-fold.folded {
+  color: var(--accent-hi);
+}
+
+.gutter-num {
+  flex: 1 1 auto;
+  text-align: right;
+  padding-right: 8px;
 }
 
 #codeArea {
@@ -406,7 +453,7 @@ button:disabled {
 }
 
 #consoleHead .badge {
-  background: #3a3a3d;
+  background: var(--scrollbar);
   color: #ddd;
   border-radius: 10px;
   padding: 1px 7px;
@@ -489,8 +536,8 @@ button:disabled {
   bottom: 10px;
   z-index: 5;
   font: 11px var(--mono);
-  color: #6a6a6a;
-  background: rgba(0, 0, 0, .35);
+  color: var(--muted-dim);
+  background: var(--overlay-bg);
   padding: 3px 7px;
   border-radius: 5px;
   pointer-events: none;
@@ -502,8 +549,8 @@ button:disabled {
   bottom: 10px;
   z-index: 5;
   font: 11px var(--mono);
-  color: #6a6a6a;
-  background: rgba(0, 0, 0, .35);
+  color: var(--muted-dim);
+  background: var(--overlay-bg);
   padding: 3px 7px;
   border-radius: 5px;
   pointer-events: none;
@@ -638,7 +685,7 @@ button:disabled {
 #paramsHead button {
   padding: 2px 7px;
   font-size: 11px;
-  background: #2d2d30;
+  background: var(--btn-bg);
   border: 1px solid var(--border-2);
   border-radius: 4px;
   color: var(--text);
@@ -665,7 +712,7 @@ button:disabled {
 
 .params-empty code {
   display: inline-block;
-  background: #1a1a1a;
+  background: var(--code-bg);
   padding: 2px 5px;
   border-radius: 3px;
   font-family: var(--mono);
@@ -712,7 +759,7 @@ button:disabled {
 .param-row select {
   width: 100%;
   padding: 4px 7px;
-  background: #1a1a1a;
+  background: var(--code-bg);
   border: 1px solid var(--border-2);
   border-radius: 4px;
   color: var(--text);
@@ -826,7 +873,7 @@ button:disabled {
 .tab-rename-input {
   width: 100%;
   padding: 2px 4px;
-  background: #1a1a1a;
+  background: var(--code-bg);
   border: 1px solid var(--accent);
   border-radius: 3px;
   color: var(--text);
@@ -880,7 +927,7 @@ button:disabled {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, .6);
+  background: var(--modal-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -944,7 +991,7 @@ button:disabled {
 .modal-body textarea {
   width: 100%;
   font: 11px var(--mono);
-  background: #1a1a1a;
+  background: var(--code-bg);
   border: 1px solid var(--border-2);
   border-radius: 4px;
   color: var(--text);
@@ -1112,7 +1159,7 @@ button:disabled {
 .cheat-search {
   flex: 1 1 auto;
   padding: 6px 10px;
-  background: #1a1a1a;
+  background: var(--code-bg);
   border: 1px solid var(--border-2);
   border-radius: 5px;
   color: var(--text);
@@ -1234,7 +1281,7 @@ kbd {
 .cheat-code {
   margin: 0;
   padding: 6px 8px;
-  background: #141414;
+  background: var(--viewport-bg);
   border-radius: 3px;
   font: 11px/1.5 var(--mono);
   color: #b5cea8;
@@ -1327,7 +1374,7 @@ kbd {
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  background: rgba(0, 0, 0, .25);
+  background: var(--card-subtle);
   border: 1px solid var(--border);
   border-radius: 5px;
 }
@@ -1361,7 +1408,7 @@ kbd {
   width: 26px;
   height: 26px;
   padding: 0;
-  background: #2d2d30;
+  background: var(--btn-bg);
   border: 1px solid var(--border-2);
   border-radius: 4px;
   color: var(--text);
@@ -1886,7 +1933,7 @@ kbd {
 }
 
 .prof-tab:hover {
-  background: #37373b;
+  background: var(--btn-bg);
   color: var(--text);
 }
 
@@ -1908,7 +1955,7 @@ kbd {
 }
 
 .prof-btn:hover {
-  background: #37373b;
+  background: var(--btn-hover);
   color: var(--text);
 }
 
@@ -1936,7 +1983,7 @@ kbd {
 
 .prof-metric {
   padding: 8px 10px;
-  background: rgba(0, 0, 0, .25);
+  background: var(--card-subtle);
   border: 1px solid var(--border);
   border-radius: 5px;
 }
@@ -2177,7 +2224,7 @@ kbd {
   flex: 1 1 auto;
   min-width: 0;
   padding: 4px 8px;
-  background: #1a1a1a;
+  background: var(--code-bg);
   border: 1px solid var(--border-2);
   border-radius: 4px;
   color: var(--text);
@@ -2243,7 +2290,7 @@ kbd {
 
 .find-btn {
   padding: 4px 9px;
-  background: #2d2d30;
+  background: var(--btn-bg);
   border: 1px solid var(--border-2);
   border-radius: 4px;
   color: var(--text);
@@ -2639,14 +2686,14 @@ body.is-animating #btnPreview {
 .section-axes button {
   flex: 1;
   padding: 5px 0;
-  background: #2d2d30;
+  background: var(--btn-bg);
   border: 1px solid var(--border-2);
   border-radius: 4px;
   color: var(--text);
   font: 11px var(--mono);
   cursor: pointer;
 }
-.section-axes button:hover { background: #37373b; }
+.section-axes button:hover { background: var(--btn-hover); }
 .section-axes button.active {
   background: var(--accent);
   border-color: var(--accent);
@@ -2669,14 +2716,14 @@ body.is-animating #btnPreview {
 
 #sectionFlip {
   padding: 5px 10px;
-  background: #2d2d30;
+  background: var(--btn-bg);
   border: 1px solid var(--border-2);
   border-radius: 4px;
   color: var(--text);
   font: 11px var(--mono);
   cursor: pointer;
 }
-#sectionFlip:hover { background: #37373b; }
+#sectionFlip:hover { background: var(--btn-hover); }
 #sectionFlip.toggle-on {
   background: #1d4ed8;
   border-color: #2563eb;
@@ -2689,4 +2736,306 @@ body.is-animating #btnPreview {
     bottom: 38px;
   }
   .section-body { font-size: 11px; padding: 8px; gap: 8px; }
+}
+
+/* ============================================================
+   LIGHT THEME
+   ============================================================ */
+
+[data-theme="light"] {
+  --bg: #f5f5f7;
+  --panel: #ffffff;
+  --panel-2: #ececef;
+  --border: #d8d8dc;
+  --border-2: #c6c6ce;
+  --accent: #2563eb;
+  --accent-hi: #3b82f6;
+  --text: #1e1e23;
+  --muted: #6b6b75;
+  --ok: #16a34a;
+  --warn: #ca8a04;
+  --err: #dc2626;
+
+  --btn-bg: #ffffff;
+  --btn-hover: #f0f0f3;
+  --code-bg: #f0f0f3;
+  --scrollbar: #c0c0c8;
+  --scrollbar-hover: #a0a0a8;
+  --overlay-bg: rgba(0, 0, 0, .08);
+  --viewport-bg: #ebebf0;
+  --muted-faint: #a0a0a8;
+  --muted-dim: #808088;
+  --modal-overlay: rgba(0, 0, 0, .35);
+  --card-subtle: rgba(0, 0, 0, .04);
+}
+
+/* Hover state untuk border (supaya konsisten) */
+[data-theme="light"] button:hover,
+[data-theme="light"] select:hover {
+  border-color: #a8a8b0;
+}
+
+/* Tab hover & active */
+[data-theme="light"] .tab:hover { background: #f0f0f3; }
+[data-theme="light"] .tab.active { background: #ffffff; }
+[data-theme="light"] .tab-close:hover:not(:disabled) { background: #c8c8ce; color: #1e1e23; }
+[data-theme="light"] .tab-add:hover { background: #f0f0f3; color: #1e1e23; }
+
+/* Modal close hover */
+[data-theme="light"] .modal-x:hover { color: #1e1e23; }
+[data-theme="light"] .section-x:hover { color: #1e1e23; }
+
+/* Dropdown hover — teks jadi dark (bukan putih) */
+[data-theme="light"] .dd-item.active,
+[data-theme="light"] .dd-item:hover {
+  background: rgba(37, 99, 235, .12);
+  color: var(--text);
+}
+
+/* Tab hover & tabbar */
+[data-theme="light"] #topbar-scroll::-webkit-scrollbar-thumb { background: var(--scrollbar); }
+[data-theme="light"] #topbar-scroll::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); }
+[data-theme="light"] .dd-menu::-webkit-scrollbar-thumb { background: var(--scrollbar); }
+[data-theme="light"] .cheat-body::-webkit-scrollbar-thumb { background: var(--scrollbar); }
+[data-theme="light"] .cheat-body::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-hover); }
+
+/* Console log colors — versi light */
+[data-theme="light"] .log.info { color: #6a6a75; }
+[data-theme="light"] .log.warn { color: #a16207; }
+[data-theme="light"] .log.error { color: #b91c1c; }
+[data-theme="light"] .log.ok { color: #15803d; }
+
+/* Console badge */
+[data-theme="light"] #consoleHead .badge { color: #1e1e23; }
+[data-theme="light"] #consoleHead .badge.has-err { color: #fff; }
+
+/* Editor syntax colors — palet VS Code light */
+[data-theme="light"] .tok-com { color: #008000; }
+[data-theme="light"] .tok-str { color: #a31515; }
+[data-theme="light"] .tok-num { color: #098658; }
+[data-theme="light"] .tok-kw  { color: #0000ff; }
+[data-theme="light"] .tok-spl { color: #795e26; }
+[data-theme="light"] .tok-mod { color: #af00db; }
+
+/* Editor caret & selection */
+[data-theme="light"] #editor { caret-color: #1e1e23; }
+[data-theme="light"] #editor::selection {
+  background: rgba(37, 99, 235, .25);
+  color: transparent;
+}
+
+/* Toast di light mode */
+[data-theme="light"] #toast {
+  background: #ffffff;
+  border-color: #c6c6ce;
+  color: #1e1e23;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, .15);
+}
+
+/* Home screen */
+[data-theme="light"] .home-file-card:hover { background: #f5f5f7; }
+[data-theme="light"] .home-menu-item:hover { background: #f5f5f7; }
+
+/* Files hover */
+[data-theme="light"] .files-actions button:hover { background: #f0f0f3; }
+[data-theme="light"] .files-actions .files-delete:hover {
+  background: rgba(220, 38, 38, .12);
+  border-color: rgba(220, 38, 38, .4);
+  color: #b91c1c;
+}
+
+/* Find toggle hover */
+[data-theme="light"] .find-toggle:hover { background: #f0f0f3; }
+[data-theme="light"] .find-nav:hover,
+[data-theme="light"] .find-close:hover { background: #f0f0f3; }
+[data-theme="light"] .find-btn:hover { background: #f0f0f3; }
+
+/* Profiler hover */
+[data-theme="light"] .prof-tab:hover,
+[data-theme="light"] .prof-btn:hover { background: #f0f0f3; color: #1e1e23; }
+[data-theme="light"] .prof-table tr.prof-row-err td { background: rgba(220, 38, 38, .06); }
+
+/* Params head button hover */
+[data-theme="light"] #paramsHead button:hover { background: #f0f0f3; }
+
+/* Section flip active */
+[data-theme="light"] #sectionFlip.toggle-on { background: #2563eb; border-color: #2563eb; color: #fff; }
+
+/* Home footer skip hover */
+[data-theme="light"] .home-skip:hover { background: #f0f0f3; }
+
+/* Dropdown trigger active */
+[data-theme="light"] .dd-trigger[aria-expanded="true"] {
+  background: #f0f0f3;
+  color: #1e1e23;
+}
+
+/* Section indicator & dimension overlay (Three.js colors) — blue tetap oke, tidak perlu override */
+
+/* Theme button */
+#btnTheme {
+  font-size: 15px;
+  padding: 4px 10px;
+  line-height: 1;
+}
+#btnTheme.toggle-on {
+  background: rgba(37, 99, 235, .15);
+  border-color: var(--accent);
+}
+[data-theme="light"] #btnTheme.toggle-on {
+  background: rgba(234, 179, 8, .18);
+  border-color: #ca8a04;
+}
+
+/* ---------- MEASURE TOOL ---------- */
+#btnMeasure.toggle-on {
+  background: rgba(255, 77, 77, .22);
+  border-color: #ff4d4d;
+  color: #ff8888;
+}
+
+#measureInfo {
+  position: absolute;
+  bottom: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 220px;
+  max-width: min(300px, calc(100% - 20px));
+  background: rgba(37, 37, 38, .95);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+  padding: 10px 14px;
+  z-index: 10;
+  font: 12px var(--mono);
+  color: var(--text);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .4);
+  pointer-events: none;
+}
+
+#measureInfo.hidden { display: none; }
+
+.measure-hint {
+  color: var(--muted);
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.measure-result .measure-dist {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.measure-dist span {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.measure-dist strong {
+  font-size: 20px;
+  color: #ff8888;
+  font-weight: 600;
+}
+
+.measure-deltas {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 8px;
+  font-size: 11px;
+}
+.measure-deltas > div {
+  display: flex;
+  justify-content: space-between;
+}
+.measure-deltas > div span:first-child { color: var(--muted); }
+.measure-deltas > div span:last-child  { color: var(--accent-hi); }
+
+.measure-coords {
+  font-size: 10px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+/* Light theme */
+[data-theme="light"] #measureInfo {
+  background: rgba(255, 255, 255, .97);
+  border-color: #c6c6ce;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .12);
+}
+[data-theme="light"] .measure-dist strong { color: #b91c1c; }
+[data-theme="light"] #btnMeasure.toggle-on {
+  background: rgba(220, 38, 38, .12);
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  #measureInfo {
+    bottom: 42px;
+    padding: 8px 12px;
+    font-size: 11px;
+  }
+  .measure-dist strong { font-size: 17px; }
+  .measure-deltas { font-size: 10px; }
+  .measure-coords { font-size: 9px; }
+}
+/* ---------- MEASURE SNAP BAR ---------- */
+.measure-snap-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+.measure-snap-label {
+  color: var(--muted);
+  margin-right: auto;
+  font-family: system-ui, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  font-size: 10px;
+}
+.measure-snap-bar button {
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border-2);
+  border-radius: 4px;
+  color: var(--muted);
+  font: 11px var(--mono);
+  font-weight: 600;
+  cursor: pointer;
+}
+.measure-snap-bar button:hover {
+  background: var(--btn-hover);
+  color: var(--text);
+}
+.measure-snap-bar button.active {
+  background: rgba(74, 222, 128, .15);
+  border-color: #4ade80;
+  color: #4ade80;
+}
+[data-theme="light"] .measure-snap-bar button.active {
+  background: rgba(22, 163, 74, .12);
+  border-color: #16a34a;
+  color: #15803d;
+}
+.measure-snap-hint {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: italic;
 }

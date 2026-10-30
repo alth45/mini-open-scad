@@ -57,6 +57,17 @@ export class Viewer {
         this._sectionBounds = null;
         this._sectionIndicator = null;
         this.renderer.localClippingEnabled = true;   // ← wajib untuk per-material clipping
+        this._theme = 'dark';
+        this._measureMode = false;
+        this._measurePoints = [];
+        this._measureGroup = null;
+        this._measureListeners = null;
+        this.onMeasure = null;              // callback: (data) => void
+        this._snapModes = { vertex: true, edge: true, face: true };
+        this._snapCache = null;
+        this._measurePreview = null;
+        this._hoverRaf = null;
+        this._pendingHover = null;
         this._frames = 0;
         this._lastFpsT = performance.now();
 
@@ -77,6 +88,7 @@ export class Viewer {
         });
 
         this.resetView();
+
         this._animate();
     }
 
@@ -135,6 +147,468 @@ export class Viewer {
         this.controls.target.set(0, 0, 0);
         this.controls.update();
     }
+        /* ============================================================
+    Theme
+    ============================================================ */
+
+    setTheme(theme) {
+        this._theme = theme === 'light' ? 'light' : 'dark';
+        const light = this._theme === 'light';
+        const bg = light ? 0xf5f5f7 : 0x1e1e1e;
+
+        this.renderer.setClearColor(bg, 1);
+        this.scene.background = new THREE.Color(bg);
+
+        /* Rebuild grid dengan warna sesuai tema */
+        const wasVisible = this.grid ? this.grid.visible : true;
+        if (this.grid) {
+            this.scene.remove(this.grid);
+            disposeObject(this.grid);
+        }
+        this.grid = light
+            ? new THREE.GridHelper(400, 40, 0xb0b0b8, 0xd8d8de)
+            : new THREE.GridHelper(400, 40, 0x4a4a4a, 0x2e2e2e);
+        this.grid.rotation.x = Math.PI / 2;
+        this.grid.position.z = -0.01;
+        this.grid.visible = wasVisible;
+        this.scene.add(this.grid);
+    }
+
+        /* ============================================================
+                    Measure tool
+    ============================================================ */
+
+    setMeasureMode(on) {
+        on = !!on;
+        if (this._measureMode === on) return;
+        this._measureMode = on;
+        this.renderer.domElement.style.cursor = on ? 'crosshair' : '';
+
+        if (on) {
+            if (!this._measureListeners) {
+                const down = (e) => { this._measureDownPos = { x: e.clientX, y: e.clientY }; };
+                const up = (e) => this._handleMeasurePointerUp(e);
+                const move = (e) => this._handleMeasurePointerMove(e);
+                const leave = () => {
+                    if (this._measurePreview) this._measurePreview.visible = false;
+                };
+                this._measureListeners = { down, up, move, leave };
+                this.renderer.domElement.addEventListener('pointerdown', down);
+                this.renderer.domElement.addEventListener('pointerup', up);
+                this.renderer.domElement.addEventListener('pointermove', move);
+                this.renderer.domElement.addEventListener('pointerleave', leave);
+            }
+        } else {
+            if (this._measureListeners) {
+                this.renderer.domElement.removeEventListener('pointerdown', this._measureListeners.down);
+                this.renderer.domElement.removeEventListener('pointerup', this._measureListeners.up);
+                this.renderer.domElement.removeEventListener('pointermove', this._measureListeners.move);
+                this.renderer.domElement.removeEventListener('pointerleave', this._measureListeners.leave);
+                this._measureListeners = null;
+            }
+            if (this._hoverRaf) { cancelAnimationFrame(this._hoverRaf); this._hoverRaf = null; }
+            this._pendingHover = null;
+            if (this._measurePreview) this._measurePreview.visible = false;
+            this._measureDownPos = null;
+            this.clearMeasurement();
+        }
+    }
+
+   clearMeasurement() {
+        this._disposeMeasureGroup();
+        this._measurePoints = [];
+        if (this._measurePreview) this._measurePreview.visible = false;
+        this.onMeasure?.({ reset: true });
+    }
+
+    _handleMeasurePointerUp(e) {
+        if (!this._measureMode) return;
+        if (e.button !== 0) return;
+        if (!this._measureDownPos) return;
+
+        const dx = e.clientX - this._measureDownPos.x;
+        const dy = e.clientY - this._measureDownPos.y;
+        this._measureDownPos = null;
+        if (Math.sqrt(dx * dx + dy * dy) > 4) return;
+
+        if (!this.hasModel()) return;
+
+        const hit = this._raycastMeasure(e.clientX, e.clientY);
+        if (!hit) return;
+
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        const snap = this._snapPoint(hit.point, e.clientX, e.clientY, rect);
+        const point = snap ? snap.point.clone() : hit.point.clone();
+
+        if (this._measurePoints.length >= 2) this._measurePoints = [];
+        this._measurePoints.push(point);
+
+        this._renderMeasurement();
+        this._updateMeasurePreview(e.clientX, e.clientY);   // refresh preview
+
+        if (this._measurePoints.length === 1) {
+            this.onMeasure?.({ points: [point.clone()], complete: false });
+        } else {
+            const [a, b] = this._measurePoints;
+            const dxv = b.x - a.x, dyv = b.y - a.y, dzv = b.z - a.z;
+            const dist = Math.sqrt(dxv * dxv + dyv * dyv + dzv * dzv);
+            this.onMeasure?.({
+                points: [a.clone(), b.clone()],
+                complete: true,
+                distance: dist,
+                dx: dxv, dy: dyv, dz: dzv,
+            });
+        }
+    }
+
+    _handleMeasurePointerMove(e) {
+        if (!this._measureMode) return;
+        if (e.buttons !== 0) {
+            if (this._measurePreview) this._measurePreview.visible = false;
+            return;
+        }
+        this._pendingHover = { x: e.clientX, y: e.clientY };
+        if (this._hoverRaf) return;
+        this._hoverRaf = requestAnimationFrame(() => {
+            this._hoverRaf = null;
+            const p = this._pendingHover;
+            this._pendingHover = null;
+            if (p) this._updateMeasurePreview(p.x, p.y);
+        });
+    }
+
+    setSnapModes(modes) {
+        if (!modes) return;
+        if (typeof modes.vertex === 'boolean') this._snapModes.vertex = modes.vertex;
+        if (typeof modes.edge === 'boolean') this._snapModes.edge = modes.edge;
+        if (typeof modes.face === 'boolean') this._snapModes.face = modes.face;
+        /* Invalidasi preview agar tidak nyangkut */
+        if (this._measurePreview) this._measurePreview.visible = false;
+    }
+
+    getSnapModes() { return { ...this._snapModes }; }
+
+    /* --- shared raycast helper (respect section plane) --- */
+    _raycastMeasure(clientX, clientY) {
+        if (!this.hasModel()) return null;
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        const nx = ((clientX - rect.left) / rect.width) * 2 - 1;
+        const ny = -((clientY - rect.top) / rect.height) * 2 + 1;
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(new THREE.Vector2(nx, ny), this.camera);
+
+        const meshes = [];
+        this.modelRoot.traverse(o => { if (o.isMesh && o.visible) meshes.push(o); });
+        const hits = raycaster.intersectObjects(meshes, false);
+        if (hits.length === 0) return null;
+
+        if (this._section.enabled) {
+            for (const h of hits) {
+                if (this._sectionPlane.distanceToPoint(h.point) <= 1e-6) {
+                    return { point: h.point.clone(), object: h.object };
+                }
+            }
+            return null;
+        }
+        return { point: hits[0].point.clone(), object: hits[0].object };
+    }
+
+    /* --- snap detection (screen-space, 20px radius) --- */
+    _snapPoint(hitPointWorld, mouseX, mouseY, rect) {
+        if (!this._snapCache || this._snapCache.disabled) return null;
+        const m = this._snapModes;
+        if (!m.vertex && !m.edge && !m.face) return null;
+
+        /* radius dalam pixel untuk "near" */
+        const SNAP_RADIUS_PX = 20;
+        /* 3D buffer: perkiraan world-space dari SNAP_RADIUS_PX */
+        const dist = this.camera.position.distanceTo(hitPointWorld);
+        const vFov = this.camera.fov * Math.PI / 180;
+        const worldPerPx = (2 * dist * Math.tan(vFov / 2)) / Math.max(rect.height, 1);
+        const radiusW = worldPerPx * SNAP_RADIUS_PX * 2;   // 2× buffer
+        const radiusSq = radiusW * radiusW;
+
+        const groups = [];
+        if (m.vertex) groups.push({ arr: this._snapCache.vertices, type: 'vertex' });
+        if (m.edge)   groups.push({ arr: this._snapCache.edges,    type: 'edge' });
+        if (m.face)   groups.push({ arr: this._snapCache.faceCenters, type: 'face' });
+
+        const tmp = new THREE.Vector3();
+        let best = null;
+        let bestPx = SNAP_RADIUS_PX;
+        const sectionOn = this._section.enabled;
+
+        for (const g of groups) {
+            for (const p of g.arr) {
+                const dx = p.x - hitPointWorld.x;
+                const dy = p.y - hitPointWorld.y;
+                const dz = p.z - hitPointWorld.z;
+                if (dx * dx + dy * dy + dz * dz > radiusSq) continue;
+                if (sectionOn && this._sectionPlane.distanceToPoint(p) > 1e-6) continue;
+
+                tmp.copy(p).project(this.camera);
+                const sx = (tmp.x * 0.5 + 0.5) * rect.width + rect.left;
+                const sy = (-tmp.y * 0.5 + 0.5) * rect.height + rect.top;
+                const sdx = sx - mouseX;
+                const sdy = sy - mouseY;
+                const px = Math.sqrt(sdx * sdx + sdy * sdy);
+                if (px < bestPx) {
+                    bestPx = px;
+                    best = { point: p, type: g.type, px: bestPx };
+                }
+            }
+        }
+        return best;
+    }
+
+    /* --- hover preview marker --- */
+    _updateMeasurePreview(mouseX, mouseY) {
+        if (!this._measureMode || !this.hasModel()) {
+            if (this._measurePreview) this._measurePreview.visible = false;
+            return;
+        }
+        const hit = this._raycastMeasure(mouseX, mouseY);
+        if (!hit) {
+            if (this._measurePreview) this._measurePreview.visible = false;
+            return;
+        }
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        const snap = this._snapPoint(hit.point, mouseX, mouseY, rect);
+        const pos = snap ? snap.point : hit.point;
+
+        const radius = this._measurePointRadius();
+
+        if (!this._measurePreview) {
+            const geo = new THREE.SphereGeometry(1, 16, 12);
+            const mat = new THREE.MeshBasicMaterial({
+                color: 0x4ade80,
+                transparent: true,
+                opacity: 0.85,
+                depthTest: false,
+                depthWrite: false,
+            });
+            this._measurePreview = new THREE.Mesh(geo, mat);
+            this._measurePreview.renderOrder = 1004;
+            this.scene.add(this._measurePreview);
+        }
+        this._measurePreview.scale.setScalar(radius);
+        this._measurePreview.position.copy(pos);
+        this._measurePreview.visible = true;
+    }
+
+    _measurePointRadius() {
+        if (!this._sectionBounds) this.refreshSectionBounds();
+        if (!this._sectionBounds) return 0.5;
+        const size = this._sectionBounds.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+        return maxDim * 0.008;
+    }
+
+    /* --- build snap candidate cache --- */
+    _buildSnapCache() {
+        this._snapCache = { vertices: [], edges: [], faceCenters: [], disabled: false };
+        if (!this.hasModel()) return;
+
+        /* hitung total triangle */
+        let triTotal = 0;
+        this.modelRoot.traverse(o => {
+            if (!o.isMesh || !o.geometry) return;
+            const pos = o.geometry.attributes.position;
+            const idx = o.geometry.index;
+            if (!pos) return;
+            triTotal += Math.floor((idx ? idx.count : pos.count) / 3);
+        });
+
+        if (triTotal > 200000) {
+            this._snapCache.disabled = true;
+            this._snapCache.triTotal = triTotal;
+            return;
+        }
+        this._snapCache.triTotal = triTotal;
+
+        this.modelRoot.updateMatrixWorld(true);
+
+        this.modelRoot.traverse(o => {
+            if (!o.isMesh || !o.geometry) return;
+            const geo = o.geometry;
+            const pos = geo.attributes.position;
+            if (!pos) return;
+
+            const mat = o.matrixWorld;
+            const idx = geo.index ? geo.index.array : null;
+            const nVerts = pos.count;
+            const triCount = Math.floor((idx ? idx.length : nVerts) / 3);
+
+            /* world-space posisi semua vertex */
+            const wp = new Float32Array(nVerts * 3);
+            const tmp = new THREE.Vector3();
+            for (let i = 0; i < nVerts; i++) {
+                tmp.fromBufferAttribute(pos, i).applyMatrix4(mat);
+                wp[i * 3]     = tmp.x;
+                wp[i * 3 + 1] = tmp.y;
+                wp[i * 3 + 2] = tmp.z;
+            }
+
+            /* dedupe vertices via rounded key */
+            const seenV = new Set();
+            for (let i = 0; i < nVerts; i++) {
+                const x = wp[i * 3], y = wp[i * 3 + 1], z = wp[i * 3 + 2];
+                const key = `${x.toFixed(4)}|${y.toFixed(4)}|${z.toFixed(4)}`;
+                if (seenV.has(key)) continue;
+                seenV.add(key);
+                this._snapCache.vertices.push(new THREE.Vector3(x, y, z));
+            }
+
+            /* face centers + edge midpoints (dedupe edges) */
+            const seenE = new Set();
+            for (let t = 0; t < triCount; t++) {
+                const i0 = idx ? idx[t * 3]     : t * 3;
+                const i1 = idx ? idx[t * 3 + 1] : t * 3 + 1;
+                const i2 = idx ? idx[t * 3 + 2] : t * 3 + 2;
+
+                /* face center */
+                this._snapCache.faceCenters.push(new THREE.Vector3(
+                    (wp[i0 * 3]     + wp[i1 * 3]     + wp[i2 * 3])     / 3,
+                    (wp[i0 * 3 + 1] + wp[i1 * 3 + 1] + wp[i2 * 3 + 1]) / 3,
+                    (wp[i0 * 3 + 2] + wp[i1 * 3 + 2] + wp[i2 * 3 + 2]) / 3,
+                ));
+
+                /* edges */
+                const tri = [i0, i1, i2];
+                for (let k = 0; k < 3; k++) {
+                    const a = tri[k], b = tri[(k + 1) % 3];
+                    const key = a < b ? `${a}_${b}` : `${b}_${a}`;
+                    if (seenE.has(key)) continue;
+                    seenE.add(key);
+                    this._snapCache.edges.push(new THREE.Vector3(
+                        (wp[a * 3]     + wp[b * 3])     / 2,
+                        (wp[a * 3 + 1] + wp[b * 3 + 1]) / 2,
+                        (wp[a * 3 + 2] + wp[b * 3 + 2]) / 2,
+                    ));
+                }
+            }
+        });
+    }
+
+    _disposeMeasureGroup() {
+        if (this._measureGroup) {
+            this.scene.remove(this._measureGroup);
+            disposeObject(this._measureGroup);
+            this._measureGroup = null;
+        }
+    }
+
+    _renderMeasurement() {
+        this._disposeMeasureGroup();
+        if (this._measurePoints.length === 0) return;
+        if (!this.hasModel()) return;
+
+        this.modelRoot.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(this.modelRoot);
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+
+        const group = new THREE.Group();
+        group.name = '__measure';
+
+        const pointRadius = maxDim * 0.008;
+        const pointGeo = new THREE.SphereGeometry(pointRadius, 16, 12);
+        const pointMat = new THREE.MeshBasicMaterial({
+            color: 0xff4d4d,
+            depthTest: false,
+            depthWrite: false,
+        });
+
+        for (const p of this._measurePoints) {
+            const sphere = new THREE.Mesh(pointGeo, pointMat);
+            sphere.position.copy(p);
+            sphere.renderOrder = 1002;
+            group.add(sphere);
+        }
+
+        if (this._measurePoints.length === 2) {
+            const [a, b] = this._measurePoints;
+            const geo = new THREE.BufferGeometry().setFromPoints([a, b]);
+            const mat = new THREE.LineDashedMaterial({
+                color: 0xff4d4d,
+                dashSize: maxDim * 0.02,
+                gapSize: maxDim * 0.012,
+                depthTest: false,
+                depthWrite: false,
+                transparent: true,
+                opacity: 0.95,
+            });
+            const line = new THREE.Line(geo, mat);
+            line.computeLineDistances();
+            line.renderOrder = 1001;
+            group.add(line);
+
+            const dxv = b.x - a.x, dyv = b.y - a.y, dzv = b.z - a.z;
+            const dist = Math.sqrt(dxv * dxv + dyv * dyv + dzv * dzv);
+            const mid = a.clone().add(b).multiplyScalar(0.5);
+
+            const sprite = this._makeMeasureLabel(dist.toFixed(2), maxDim);
+            sprite.position.copy(mid);
+            group.add(sprite);
+        }
+
+        this._measureGroup = group;
+        this.scene.add(group);
+    }
+
+    _makeMeasureLabel(text, maxDim) {
+        const dpr = 2;
+        const cw = 512, ch = 128;
+        const canvas = document.createElement('canvas');
+        canvas.width = cw * dpr;
+        canvas.height = ch * dpr;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+
+        ctx.font = 'bold 52px ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+        const tw = ctx.measureText(text).width;
+        const padX = 24;
+        const bw = Math.min(tw + padX * 2, cw - 10);
+        const bh = 80;
+        const bx = (cw - bw) / 2;
+        const by = (ch - bh) / 2;
+        const r = 16;
+
+        ctx.fillStyle = 'rgba(40, 10, 10, 0.85)';
+        ctx.strokeStyle = 'rgba(255, 100, 100, 0.95)';
+        ctx.lineWidth = 3;
+        if (ctx.roundRect) {
+            ctx.beginPath();
+            ctx.roundRect(bx, by, bw, bh, r);
+            ctx.fill();
+            ctx.stroke();
+        } else {
+            ctx.fillRect(bx, by, bw, bh);
+            ctx.strokeRect(bx, by, bw, bh);
+        }
+
+        ctx.fillStyle = '#ffbbbb';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, cw / 2, ch / 2);
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.minFilter = THREE.LinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        tex.generateMipmaps = false;
+
+        const labelScale = maxDim * 0.16;
+        const mat = new THREE.SpriteMaterial({
+            map: tex,
+            depthTest: false,
+            depthWrite: false,
+            transparent: true,
+        });
+        const sprite = new THREE.Sprite(mat);
+        sprite.renderOrder = 1003;
+        sprite.scale.set(labelScale, labelScale / 4, 1);
+        return sprite;
+    }
 
     setModelRoot(newRoot) {
         this.scene.remove(this.modelRoot);
@@ -145,6 +619,8 @@ export class Viewer {
         this._applySectionToModel();              // ← material baru, apply clipping
         this._updateSectionIndicator();           // ← indicator ikut bbox baru
         this._refreshDimensionOverlay();
+        this._buildSnapCache();                    // ← add
+
     }
 
     clearModel() {
@@ -702,11 +1178,16 @@ export class Viewer {
     /* --- internal --- */
 
     _createOffscreen(w, h) {
-        const r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: false });
+        const r = new THREE.WebGLRenderer({
+            antialias: true,
+            preserveDrawingBuffer: true,
+            alpha: false
+        });
         r.setPixelRatio(1);
         r.setSize(w, h, false);
-        r.setClearColor(0x1e1e1e, 1);
-        r.localClippingEnabled = true;            // ← add
+        const light = this._theme === 'light';
+        r.setClearColor(light ? 0xf5f5f7 : 0x1e1e1e, 1);
+        r.localClippingEnabled = true;
         return r;
     }
 

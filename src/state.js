@@ -4,6 +4,7 @@ export const state = {
   paramValues: {},
   paramsPanelShownOnce: false,
   previewMode: true,
+  theme: 'dark',
   section: {
     enabled: false,
     axis: 'z',

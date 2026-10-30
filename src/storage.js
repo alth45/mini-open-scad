@@ -50,3 +50,18 @@ export function loadTabs() {
     return null;
   }
 }
+
+const THEME_KEY = 'mini-openscad-theme';
+
+export function saveTheme(theme) {
+  try { localStorage.setItem(THEME_KEY, theme); } catch { /* quota / private */ }
+}
+
+export function loadTheme() {
+  try {
+    const t = localStorage.getItem(THEME_KEY);
+    return (t === 'light' || t === 'dark') ? t : 'dark';
+  } catch {
+    return 'dark';
+  }
+}

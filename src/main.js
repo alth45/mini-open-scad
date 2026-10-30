@@ -1,7 +1,7 @@
 import './styles.css';
 import { CONFIG, DEFAULT_CODE, PRESETS } from './config.js';
 import { state } from './state.js';
-import { saveTabs, loadTabs } from './storage.js';
+import { saveTabs, loadTabs, saveTheme, loadTheme } from './storage.js';
 import { formatError } from './utils.js';
 import { buildModel, deserializeModel } from './viewer/model.js';
 import { Viewer } from './viewer/scene.js';
@@ -26,6 +26,7 @@ import { createDropdown } from './ui/dropdown.js';
 import { profiler } from './profiler.js';
 import { createProfilerPanel } from './ui/profiler-panel.js';
 import { createFindReplace } from './ui/find-replace.js';
+import { formatScad } from './format.js';
 
 /* ============================================================
    Viewer
@@ -1080,6 +1081,43 @@ async function startGifExport() {
 })();
 
 /* ============================================================
+   Theme toggle (dark / light)
+   ============================================================ */
+
+function applyTheme(theme) {
+    state.theme = theme === 'light' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', state.theme);
+
+    const btn = document.getElementById('btnTheme');
+    if (btn) {
+        const isLight = state.theme === 'light';
+        btn.innerHTML = isLight ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
+        btn.title = isLight ? 'Switch to dark theme' : 'Switch to light theme';
+        btn.classList.toggle('toggle-on', isLight);
+    }
+
+    viewer.setTheme(state.theme);
+    saveTheme(state.theme);
+}
+
+function toggleTheme() {
+    applyTheme(state.theme === 'light' ? 'dark' : 'light');
+}
+
+(function setupThemeButton() {
+    const topbarRight = document.getElementById('topbar-right');
+    if (!topbarRight) return;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'btnTheme';
+    btn.innerHTML = '🌙';
+    btn.title = 'Switch to light theme';
+    btn.addEventListener('click', toggleTheme);
+    topbarRight.insertBefore(btn, topbarRight.firstChild);
+})();
+
+/* ============================================================
    Buttons
    ============================================================ */
 const btnAuto = document.getElementById('btnAutoRender');
@@ -1525,6 +1563,171 @@ function setSectionAxis(axis) {
         .addEventListener('click', () => setSectionEnabled(false));
 })();
 
+
+/* ============================================================
+   Measure tool (+ vertex/edge/face snapping)
+   ============================================================ */
+let measureInfoEl = null;
+let measureBodyEl = null;
+let measureMode = false;
+const snapModes = { vertex: true, edge: true, face: true };
+
+function setMeasureMode(on) {
+    measureMode = !!on;
+    viewer.setMeasureMode(measureMode);
+
+    const btn = document.getElementById('btnMeasure');
+    btn?.classList.toggle('toggle-on', measureMode);
+
+    if (measureMode) {
+        measureInfoEl.classList.remove('hidden');
+        updateMeasureInfo({ reset: true });
+        if (!viewer.hasModel()) {
+            toast('⚠ Render model dulu, lalu klik 2 titik');
+        } else {
+            const sc = viewer._snapCache;
+            if (sc && sc.disabled) {
+                toast(`📐 Measure aktif (snap disabled: ${sc.triTotal.toLocaleString()} tri)`);
+            } else {
+                toast('📐 Measure: klik 2 titik — snap V/E/F aktif');
+            }
+        }
+    } else {
+        measureInfoEl.classList.add('hidden');
+    }
+}
+
+function updateMeasureInfo(data) {
+    if (!measureBodyEl) return;
+
+    if (data.reset) {
+        measureBodyEl.innerHTML = `
+            <div class="measure-hint">
+                Klik <b>2 titik</b> di permukaan model.<br>
+                <span class="measure-snap-hint">Snap V/E/F aktif — hover untuk lihat preview.</span>
+            </div>`;
+        return;
+    }
+
+    if (!data.complete) {
+        const p = data.points[0];
+        measureBodyEl.innerHTML = `
+            <div class="measure-hint">Titik 1 terpasang. Klik titik ke-2.</div>
+            <div class="measure-coords">
+                <div>P1 (${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})</div>
+            </div>`;
+        return;
+    }
+
+    const { distance, dx, dy, dz, points: [a, b] } = data;
+    measureBodyEl.innerHTML = `
+        <div class="measure-result">
+            <div class="measure-dist">
+                <span>Distance</span>
+                <strong>${distance.toFixed(2)}</strong>
+            </div>
+            <div class="measure-deltas">
+                <div><span>ΔX</span><span>${dx.toFixed(2)}</span></div>
+                <div><span>ΔY</span><span>${dy.toFixed(2)}</span></div>
+                <div><span>ΔZ</span><span>${dz.toFixed(2)}</span></div>
+            </div>
+            <div class="measure-coords">
+                <div>P1 (${a.x.toFixed(2)}, ${a.y.toFixed(2)}, ${a.z.toFixed(2)})</div>
+                <div>P2 (${b.x.toFixed(2)}, ${b.y.toFixed(2)}, ${b.z.toFixed(2)})</div>
+            </div>
+            <div class="measure-hint" style="margin-top:6px">Klik lagi untuk ukur ulang.</div>
+        </div>`;
+}
+
+(function setupMeasureUI() {
+    const overlay = document.getElementById('viewportOverlay');
+    if (!overlay) return;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'btnMeasure';
+    btn.title = 'Measure tool (M) — klik 2 titik di model';
+    btn.innerHTML = '📐';
+    btn.addEventListener('click', () => setMeasureMode(!measureMode));
+    overlay.appendChild(btn);
+
+    measureInfoEl = document.createElement('div');
+    measureInfoEl.id = 'measureInfo';
+    measureInfoEl.className = 'hidden';
+    measureInfoEl.innerHTML = `
+        <div class="measure-snap-bar">
+            <span class="measure-snap-label">Snap</span>
+            <button type="button" data-snap="vertex" class="active" title="Snap ke vertex">V</button>
+            <button type="button" data-snap="edge" class="active" title="Snap ke edge midpoint">E</button>
+            <button type="button" data-snap="face" class="active" title="Snap ke face center">F</button>
+        </div>
+        <div id="measureBody"></div>
+    `;
+    document.getElementById('right').appendChild(measureInfoEl);
+
+    measureBodyEl = measureInfoEl.querySelector('#measureBody');
+
+    /* Snap toggle buttons */
+    measureInfoEl.querySelectorAll('.measure-snap-bar button').forEach(b => {
+        b.addEventListener('click', () => {
+            const key = b.dataset.snap;
+            snapModes[key] = !snapModes[key];
+            b.classList.toggle('active', snapModes[key]);
+            viewer.setSnapModes(snapModes);
+        });
+    });
+
+    /* Init snap modes ke viewer */
+    viewer.setSnapModes(snapModes);
+    viewer.onMeasure = updateMeasureInfo;
+})();
+
+/* ============================================================
+   Auto-format code
+   ============================================================ */
+function doFormat() {
+    const current = editor.getValue();
+    if (!current.trim()) {
+        toast('⚠ Editor kosong');
+        return;
+    }
+
+    try {
+        const formatted = formatScad(current);
+        if (formatted === current) {
+            toast('✓ Sudah rapi');
+        } else {
+            editor.setValue(formatted);
+            tabManager?.updateActiveSilent({ code: formatted });
+            scheduleSave();
+            toast('✨ Code formatted');
+        }
+        editor.focus();
+    } catch (e) {
+        log('error', 'Format gagal: ' + e.message);
+        toast('✖ Format gagal');
+    }
+}
+
+(function setupFormatButton() {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'btnFormat';
+    btn.innerHTML = '{ }';
+    btn.title = 'Format code (Shift+Alt+F)';
+    btn.style.fontFamily = 'var(--mono)';
+    btn.style.fontSize = '11px';
+    btn.style.fontWeight = '700';
+    btn.addEventListener('click', doFormat);
+
+    const redo = document.getElementById('btnRedo');
+    if (redo && redo.parentNode) {
+        redo.parentNode.insertBefore(btn, redo.nextSibling);
+    } else {
+        const left = document.getElementById('topbar-left');
+        if (left) left.appendChild(btn);
+    }
+})();
 /* ============================================================
    Mobile view tabs (code/3d/console)
    ============================================================ */
@@ -1637,6 +1840,22 @@ window.addEventListener('keydown', (e) => {
         return;
     }
 
+        /* M → toggle measure mode */
+    if ((key === 'm' || key === 'M') && !inField) {
+        e.preventDefault();
+        e.stopPropagation();
+        setMeasureMode(!measureMode);
+        return;
+    }
+
+        /* Shift+Alt+F → format code (VS Code style) */
+    if (e.shiftKey && e.altKey && (key === 'f' || key === 'F')) {
+        e.preventDefault();
+        e.stopPropagation();
+        doFormat();
+        return;
+    }
+
     /* ? → toggle cheat sheet */
     if (e.key === '?' && !inField) {
         e.preventDefault();
@@ -1646,10 +1865,15 @@ window.addEventListener('keydown', (e) => {
 
     /* Esc → tutup modal/panel berlapis */
     if (e.key === 'Escape') {
-        if (animation.active) {                          // ← tambah
+        if (animation.active) {                          
             e.preventDefault();
             animation.abort = true;
             toast('Animation stopped');
+            return;
+        }
+         if (measureMode) {                                  
+            e.preventDefault();
+            setMeasureMode(false);
             return;
         }
         if (findReplace.isOpen()) { findReplace.close(); return; }
@@ -1703,6 +1927,7 @@ initConsoleControls();
 })();
 
 (async function init() {
+    applyTheme(loadTheme());
     /* Cek URL share dulu */
     let shareData = null;
     try {

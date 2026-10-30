@@ -19,13 +19,16 @@ const SHORTCUTS = {
     { keys: ['Enter'], desc: 'Next match (di find bar)' },
     { keys: ['Shift', 'Enter'], desc: 'Previous match (di find bar)' },
     { keys: ['Esc'], desc: 'Cancel render (saat rendering) / close modal' },
+    { keys: ['Ctrl', '/'], desc: 'Toggle line comment (di editor)' },
   ],
   editor: [
     { keys: ['Tab'], desc: 'Indent 2 spasi' },
     { keys: ['Ctrl', 'Enter'], desc: 'Render dari mana saja' },
     { keys: ['Ctrl', 'S'], desc: 'Save paksa' },
     { keys: ['Ctrl', 'Z'], desc: 'Undo (per burst typing)' },
-    { keys: ['Ctrl', 'Y'], desc: 'Redo' }
+    { keys: ['Ctrl', 'Y'], desc: 'Redo' },
+    { keys: ['Shift', 'Alt', 'F'], desc: 'Format code — rapi otomatis' },
+    { keys: ['Ctrl', '/'], desc: 'Toggle line comment' },
   ],
   viewer: [
     { keys: ['Drag kiri'], desc: 'Rotate kamera' },
