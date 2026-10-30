@@ -530,10 +530,38 @@ export function makeBuiltins(evalStatements) {
             return [{ __shape2d: true, shapes: [s] }];
         },
 
-        polygon(a, node) {
+        polygon(a, node, scope, ctx) {
             const pts = getArg(a, 0, 'points', null);
-            if (!Array.isArray(pts) || pts.length < 3) throw new SCADError('polygon(): butuh minimal 3 titik', node.line);
+            if (!Array.isArray(pts) || pts.length < 3)
+                throw new SCADError('polygon(): butuh minimal 3 titik', node.line);
+            
             const v2 = pts.map(p => new THREE.Vector2(numArg(p[0]), numArg(p[1])));
+            
+            // --- DETEKSI SELF-INTERSECTING ---
+            let isSelfIntersecting = false;
+            const n = v2.length;
+            for (let i = 0; i < n; i++) {
+                for (let j = i + 1; j < n; j++) {
+                    // Abaikan segitiga yang bersebelahan (share vertex)
+                    if (i === j || (i + 1) % n === j || (j + 1) % n === i) continue;
+                    
+                    // Cek apakah segmen garis (i, i+1) dan (j, j+1) berpotongan
+                    const A = v2[i], B = v2[(i + 1) % n];
+                    const C = v2[j], D = v2[(j + 1) % n];
+                    
+                    const ccw = (P, Q, R) => (R.y - P.y) * (Q.x - P.x) > (Q.y - P.y) * (R.x - P.x);
+                    if (ccw(A, C, D) !== ccw(B, C, D) && ccw(A, B, C) !== ccw(A, B, D)) {
+                        isSelfIntersecting = true;
+                        break;
+                    }
+                }
+                if (isSelfIntersecting) break;
+            }
+            
+            if (isSelfIntersecting) {
+                ctx.warn('⚠ polygon() mendeteksi garis yang saling menyilang. Bentuk mungkin terlipat/cacat saat di-extrude.');
+            }
+
             return [{ __shape2d: true, shapes: [new THREE.Shape(v2)] }];
         },
 

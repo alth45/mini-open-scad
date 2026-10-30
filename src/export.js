@@ -133,82 +133,116 @@ export function exportPLY(modelRoot, { binary = true } = {}) {
     }
 }
 
-/* ---------- 3MF (3D Manufacturing Format) ---------- */
+/* ---------- 3MF (3D Manufacturing Format) Multi-Color PrusaSlicer Compatible ---------- */
 export function export3MF(modelRoot) {
     const err = ensureModel(modelRoot);
     if (err) return err;
     try {
         modelRoot.updateMatrixWorld(true);
 
-        const vertices = [];
-        const triangles = [];
-        let vertexOffset = 0;
+        let objectsXml = '';
+        let buildXml = '';
+        let prusaModelConfigXml = '';
+        let colorList = [];
         
+        let objectId = 2; // ID 1 untuk basematerials
+        let extruderId = 1; 
+        const colorMap = new Map(); 
         const v = new THREE.Vector3();
-
+        
+        // 1. Kumpulkan warna unik dan petakan ke extruder
+        const meshes = [];
         modelRoot.traverse(o => {
             if (!o.isMesh || !o.geometry) return;
             
-            // 1. KUNCI PERBAIKAN: Weld vertices agar tidak menjadi "Triangle Soup"
+            let colorHex = '#CCCCCC';
+            if (o.material && o.material.color) {
+                colorHex = '#' + o.material.color.getHexString().toUpperCase();
+            }
+            
+            if (!colorMap.has(colorHex)) {
+                colorMap.set(colorHex, extruderId);
+                colorList.push(colorHex);
+                extruderId++;
+            }
+            meshes.push({ mesh: o, colorHex });
+        });
+
+        if (meshes.length === 0) return { ok: false, error: 'Model kosong' };
+
+        // 2. Bangun XML untuk setiap objek
+        for (const item of meshes) {
+            const o = item.mesh;
+            const pindex = colorMap.get(item.colorHex) - 1; // 0-based index
+            const exId = colorMap.get(item.colorHex); // 1-based untuk PrusaSlicer
+            
             let geo = o.geometry.clone();
             if (geo.attributes.normal) geo.deleteAttribute('normal');
             if (geo.attributes.uv) geo.deleteAttribute('uv');
             if (geo.attributes.color) geo.deleteAttribute('color');
             
-            try {
-                geo = mergeVertices(geo, 1e-4);
-            } catch (e) {
-                console.warn('[3MF] Weld failed:', e);
-            }
+            try { geo = mergeVertices(geo, 1e-4); } catch (e) {}
 
             const pos = geo.attributes.position;
             const idx = geo.index;
             
+            let objVertices = '';
             for (let i = 0; i < pos.count; i++) {
                 v.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
-                vertices.push(`<vertex x="${v.x.toFixed(4)}" y="${v.y.toFixed(4)}" z="${v.z.toFixed(4)}" />`);
+                objVertices += `        <vertex x="${v.x.toFixed(4)}" y="${v.y.toFixed(4)}" z="${v.z.toFixed(4)}" />\n`;
             }
             
+            let objTriangles = '';
+            let triCount = 0;
             if (idx) {
                 for (let i = 0; i < idx.count; i += 3) {
-                    triangles.push(`<triangle v1="${idx.getX(i) + vertexOffset}" v2="${idx.getX(i+1) + vertexOffset}" v3="${idx.getX(i+2) + vertexOffset}" />`);
+                    objTriangles += `        <triangle v1="${idx.getX(i)}" v2="${idx.getX(i+1)}" v3="${idx.getX(i+2)}" />\n`;
+                    triCount++;
                 }
             } else {
                 for (let i = 0; i < pos.count; i += 3) {
-                    triangles.push(`<triangle v1="${i + vertexOffset}" v2="${i+1 + vertexOffset}" v3="${i+2 + vertexOffset}" />`);
+                    objTriangles += `        <triangle v1="${i}" v2="${i+1}" v3="${i+2}" />\n`;
+                    triCount++;
                 }
             }
             
-            vertexOffset += pos.count;
-        });
+            // Tulis Object 3MF
+            objectsXml += `  <object id="${objectId}" type="model" pid="1" pindex="${pindex}">\n    <mesh>\n      <vertices>\n${objVertices}      </vertices>\n      <triangles>\n${objTriangles}      </triangles>\n    </mesh>\n  </object>\n`;
+            
+            // Tulis Build Item dengan atribut slic3rpe:extruder
+            buildXml += `    <item objectid="${objectId}" slic3rpe:extruder="${exId}" />\n`;
+            
+            // Tulis Metadata Konfigurasi PrusaSlicer
+            prusaModelConfigXml += `  <object id="${objectId}" instances_count="1">\n    <volume firstid="0" lastid="${triCount - 1}">\n      <metadata type="volume" key="extruder" value="${exId}"/>\n    </volume>\n    <metadata type="object" key="extruder" value="${exId}"/>\n  </object>\n`;
+            
+            objectId++;
+        }
 
-        if (vertices.length === 0) return { ok: false, error: 'Model kosong' };
-
-        // 2. Susun XML 3D Model
+        // 3. Bangun XML Model Utama
         const modelXml = `<?xml version="1.0" encoding="UTF-8"?>
-<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">
+<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:slic3rpe="http://schemas.slic3r.org/3mf/2017/06">
   <resources>
-    <object id="1" type="model">
-      <mesh>
-        <vertices>
-          ${vertices.join('\n')}
-        </vertices>
-        <triangles>
-          ${triangles.join('\n')}
-        </triangles>
-      </mesh>
-    </object>
-  </resources>
+    <basematerials id="1">
+${colorList.map((c, i) => `      <base name="color_${i}" displaycolor="${c}FF" />`).join('\n')}
+    </basematerials>
+${objectsXml}  </resources>
   <build>
-    <item objectid="1" />
-  </build>
+${buildXml}  </build>
 </model>`;
 
-        // 3. File wajib standar 3MF (Content Types & Relationships)
+        // 4. Bangun Metadata PrusaSlicer
+        const prusaModelConfig = `<?xml version="1.0" encoding="UTF-8"?>\n<config>\n${prusaModelConfigXml}</config>`;
+        
+        // Daftar warna untuk PrusaSlicer
+        const colorsStr = colorList.join(';');
+        const prusaPeConfig = `filament_colour = ${colorsStr}\nextruder_colour = ${colorsStr}\n`;
+
+        // 5. File Wajib 3MF
         const contentTypesXml = `<?xml version="1.0" encoding="UTF-8"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml" />
   <Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml" />
+  <Default Extension="config" ContentType="text/xml" />
 </Types>`;
 
         const relsXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -216,11 +250,13 @@ export function export3MF(modelRoot) {
   <Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel" />
 </Relationships>`;
 
-        // 4. Kompres ke format ZIP (.3mf)
+        // 6. Gabungkan semua ke dalam ZIP
         const zipped = zipSync({
             '[Content_Types].xml': strToU8(contentTypesXml),
             '_rels/.rels': strToU8(relsXml),
-            '3D/3dmodel.model': strToU8(modelXml)
+            '3D/3dmodel.model': strToU8(modelXml),
+            'Metadata/Slic3r_PE_model.config': strToU8(prusaModelConfig),
+            'Metadata/Slic3r_PE.config': strToU8(prusaPeConfig)
         });
 
         const blob = new Blob([zipped], { type: 'model/3mf' });
