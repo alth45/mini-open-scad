@@ -4,9 +4,7 @@ import { Parser } from '../core/parser.js';
 import { EvalContext, makeRootScope, evalStatements } from '../evaluator/index.js';
 import { applyParams } from '../evaluator/params.js';
 import { CONFIG } from '../config.js';
-/**
- * Compile OpenSCAD source → THREE.Group + stats. Murni (tidak menyentuh scene).
- */
+
 export function buildModel(code, paramValues, files = null, previewMode = true, scadCache = null) {
     const tStart = performance.now();
 
@@ -40,11 +38,36 @@ export function buildModel(code, paramValues, files = null, previewMode = true, 
     const warnings = [...ctx.warnings];
     let meshCount = 0, triCount = 0, vertexCount = 0;
 
+    // Simpan data points 2D (agar bisa diserialisasi ke Worker)
+    const shapes2d = [];
+
     for (const r of results) {
         if (!r) continue;
-        if (r.isObject3D) root.add(r);
-        else if (r.__shape2d) {
-            warnings.push('Shape 2D di top-level tidak dirender. Bungkus dengan linear_extrude()/rotate_extrude().');
+        if (r.isObject3D) {
+            root.add(r);
+        } else if (r.__shape2d) {
+            // 1. Ekstrak points murni untuk diexport
+            for (const shape of r.shapes) {
+                const outer = shape.getPoints(64);
+                const holes = (shape.holes || []).map(h => h.getPoints(64));
+                shapes2d.push({ outer, holes });
+            }
+
+            // 2. Render sebagai bidang datar (flat mesh) agar terlihat di viewport 3D
+            try {
+                const geo = new THREE.ShapeGeometry(r.shapes);
+                const mat = new THREE.MeshBasicMaterial({ 
+                    color: 0x60a5fa, 
+                    side: THREE.DoubleSide, 
+                    transparent: true, 
+                    opacity: 0.8,
+                    depthWrite: false
+                });
+                const mesh = new THREE.Mesh(geo, mat);
+                root.add(mesh);
+            } catch (e) {
+                warnings.push('Gagal merender shape 2D ke viewport: ' + e.message);
+            }
         }
     }
 
@@ -81,11 +104,11 @@ export function buildModel(code, paramValues, files = null, previewMode = true, 
         vertexCount,
         warnings,
         echoes: ctx.echoes || [],
-        meshes
+        meshes,
+        shapes2d // <-- Dikembalikan ke pemanggil
     };
 }
 
-/** Scan AST untuk `$maxTime = N;` top-level dengan literal number. */
 function scanMaxTime(ast, defaultMs) {
     for (const st of ast.body) {
         if (st.type === 'Assignment' && st.name === '$maxTime') {
@@ -97,19 +120,6 @@ function scanMaxTime(ast, defaultMs) {
     return defaultMs;
 }
 
-/* ============================================================
-   Serialisasi THREE.Mesh ↔ plain data (untuk Web Worker)
-   ============================================================ */
-
-/**
- * Flatten Object3D → array of plain mesh data.
- * - World matrix di-bake ke positions
- * - Geometri dijadikan non-indexed (TriangleSoup)
- * - Warna dari material.color per-mesh disimpan
- * - Mirror (determinant < 0) → winding di-flip
- *
- * Hasil bisa di-`postMessage` dengan buffer sebagai transferable.
- */
 export function serializeModel(root) {
     root.updateMatrixWorld(true);
     const meshes = [];
@@ -154,10 +164,6 @@ export function serializeModel(root) {
     return meshes;
 }
 
-/**
- * Kebalikan dari serializeModel — bangun THREE.Group dari plain data.
- * Cocok dipakai di main thread setelah menerima transferable dari worker.
- */
 export function deserializeModel(meshes) {
     const root = new THREE.Group();
     for (const m of meshes) {

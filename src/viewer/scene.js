@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 function disposeObject(obj) {
     if (!obj) return;
@@ -8,7 +9,7 @@ function disposeObject(obj) {
         if (o.material) {
             const mats = Array.isArray(o.material) ? o.material : [o.material];
             for (const m of mats) {
-                if (m.map) m.map.dispose();   // ← dispose CanvasTexture di sprite
+                if (m.map) m.map.dispose();   // dispose CanvasTexture di sprite
                 m.dispose();
             }
         }
@@ -19,11 +20,24 @@ export class Viewer {
     constructor(container) {
         this.container = container;
 
+        // ==========================================
+        // 1. RENDERER SETUP
+        // ==========================================
         this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
         this.renderer.setClearColor(0x1e1e1e, 1);
         container.appendChild(this.renderer.domElement);
 
+        // Fitur Studio Look: Shadows & Tone Mapping
+        this.renderer.localClippingEnabled = true;
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.0;
+
+        // ==========================================
+        // 2. SCENE & CAMERA
+        // ==========================================
         this.scene = new THREE.Scene();
         this.scene.background = new THREE.Color(0x1e1e1e);
 
@@ -38,13 +52,34 @@ export class Viewer {
         this.controls.minDistance = 0.5;
         this.controls.maxDistance = 20000;
 
-        this._setupLights();
+        // ==========================================
+        // 3. LIGHTING SETUP (WAJIB SEBELUM _setupLights)
+        // ==========================================
+        this._pmrem = new THREE.PMREMGenerator(this.renderer);
+        this._lightsGroup = new THREE.Group();
+        this.scene.add(this._lightsGroup);
+        this._currentLighting = 'default';
 
+        // ==========================================
+        // 4. GRID & SHADOW PLANE
+        // ==========================================
         this.grid = new THREE.GridHelper(400, 40, 0x4a4a4a, 0x2e2e2e);
         this.grid.rotation.x = Math.PI / 2;
         this.grid.position.z = -0.01;
         this.scene.add(this.grid);
 
+        // Lantai transparan untuk menerima bayangan
+        const shadowGeo = new THREE.PlaneGeometry(2000, 2000);
+        const shadowMat = new THREE.ShadowMaterial({ opacity: 0.25, color: 0x000000 });
+        this.shadowPlane = new THREE.Mesh(shadowGeo, shadowMat);
+        this.shadowPlane.receiveShadow = true;
+        this.shadowPlane.position.z = -0.1; // Sedikit di bawah grid
+        this.shadowPlane.visible = false; // Default off
+        this.scene.add(this.shadowPlane);
+
+        // ==========================================
+        // 5. STATE LAINNYA
+        // ==========================================
         this.modelRoot = new THREE.Group();
         this.scene.add(this.modelRoot);
 
@@ -56,7 +91,7 @@ export class Viewer {
         this._sectionPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
         this._sectionBounds = null;
         this._sectionIndicator = null;
-        this.renderer.localClippingEnabled = true;   // ← wajib untuk per-material clipping
+
         this._theme = 'dark';
         this._measureMode = false;
         this._measurePoints = [];
@@ -70,7 +105,16 @@ export class Viewer {
         this._pendingHover = null;
         this._frames = 0;
         this._lastFpsT = performance.now();
+        this._wireframeOn = false;
 
+        // ==========================================
+        // 6. INIT LIGHTS (Sekarang aman)
+        // ==========================================
+        this._setupLights("default");
+
+        // ==========================================
+        // 7. EVENTS & LISTENERS
+        // ==========================================
         this._resizeObserver = new ResizeObserver(() => this.resize());
         this._resizeObserver.observe(container);
         window.addEventListener('resize', () => this.resize());
@@ -88,7 +132,6 @@ export class Viewer {
         });
 
         this.resetView();
-
         this._animate();
     }
 
@@ -98,18 +141,93 @@ export class Viewer {
         this._viewInfoEl = viewInfoEl;
     }
 
-    _setupLights() {
-        this.scene.add(new THREE.HemisphereLight(0xffffff, 0x2a2a3a, 1.15));
+    _setupLights(preset = 'default') {
+        // Bersihkan lampu lama
+        this._lightsGroup.clear();
+        this.scene.environment = null;
 
-        const dir1 = new THREE.DirectionalLight(0xffffff, 2.0);
-        dir1.position.set(1, -1.4, 2.2);
-        this.scene.add(dir1);
+        if (preset === 'studio') {
+            // 1. PBR Environment (Soft realistic reflections)
+            const env = new RoomEnvironment();
+            this.scene.environment = this._pmrem.fromScene(env, 0.04).texture;
+            env.dispose();
 
-        const dir2 = new THREE.DirectionalLight(0xaaccff, 0.9);
-        dir2.position.set(-1.6, 1.2, 0.6);
-        this.scene.add(dir2);
+            // 2. Key Light (dengan bayangan)
+            const dir1 = new THREE.DirectionalLight(0xffffff, 2.0);
+            dir1.position.set(80, -80, 120);
+            dir1.castShadow = true;
+            dir1.shadow.mapSize.width = 2048;
+            dir1.shadow.mapSize.height = 2048;
+            dir1.shadow.camera.near = 0.5;
+            dir1.shadow.camera.far = 500;
+            dir1.shadow.camera.left = -150;
+            dir1.shadow.camera.right = 150;
+            dir1.shadow.camera.top = 150;
+            dir1.shadow.camera.bottom = -150;
+            dir1.shadow.bias = -0.0005; // Cegah shadow acne
+            this._lightsGroup.add(dir1);
 
-        this.scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+            // 3. Fill Light (lembut)
+            const dir2 = new THREE.DirectionalLight(0xaaccff, 0.8);
+            dir2.position.set(-80, 80, 60);
+            this._lightsGroup.add(dir2);
+            
+            this.renderer.toneMappingExposure = 1.1;
+
+        } else if (preset === 'dramatic') {
+            // Pencahayaan kontras tinggi (Dramatis)
+            const dir1 = new THREE.DirectionalLight(0xffffff, 3.0);
+            dir1.position.set(100, -50, 50);
+            dir1.castShadow = true;
+            this._lightsGroup.add(dir1);
+
+            const dir2 = new THREE.DirectionalLight(0x3b82f6, 1.5); // Biru
+            dir2.position.set(-80, 80, 20);
+            this._lightsGroup.add(dir2);
+
+            const amb = new THREE.AmbientLight(0x222222, 1.0);
+            this._lightsGroup.add(amb);
+            
+            this.renderer.toneMappingExposure = 0.9;
+
+        } else {
+            // Default (Cepat, tanpa bayangan)
+            const hemi = new THREE.HemisphereLight(0xffffff, 0x2a2a3a, 1.15);
+            this._lightsGroup.add(hemi);
+
+            const dir1 = new THREE.DirectionalLight(0xffffff, 2.0);
+            dir1.position.set(1, -1.4, 2.2);
+            this._lightsGroup.add(dir1);
+
+            const dir2 = new THREE.DirectionalLight(0xaaccff, 0.9);
+            dir2.position.set(-1.6, 1.2, 0.6);
+            this._lightsGroup.add(dir2);
+
+            const amb = new THREE.AmbientLight(0xffffff, 0.35);
+            this._lightsGroup.add(amb);
+            
+            this.renderer.toneMappingExposure = 1.0;
+        }
+    }
+
+    setLightingPreset(preset) {
+        this._currentLighting = preset;
+        this._setupLights(preset);
+        
+        // Toggle shadow plane
+        if (this.shadowPlane) {
+            this.shadowPlane.visible = (preset !== 'default');
+        }
+
+        // Pastikan semua mesh bisa cast shadow (jika di mode studio/dramatic)
+        const cast = (preset !== 'default');
+        this.modelRoot.traverse(o => {
+            if (o.isMesh) {
+                o.castShadow = cast;
+                o.receiveShadow = cast;
+                if (o.material) o.material.needsUpdate = true;
+            }
+        });
     }
 
     _animate() {
@@ -147,10 +265,10 @@ export class Viewer {
         this.controls.target.set(0, 0, 0);
         this.controls.update();
     }
-        /* ============================================================
-    Theme
-    ============================================================ */
 
+    /* ============================================================
+       Theme
+       ============================================================ */
     setTheme(theme) {
         this._theme = theme === 'light' ? 'light' : 'dark';
         const light = this._theme === 'light';
@@ -172,12 +290,17 @@ export class Viewer {
         this.grid.position.z = -0.01;
         this.grid.visible = wasVisible;
         this.scene.add(this.grid);
+
+        /* Refresh wireframe color jika sedang aktif */
+        if (this._wireframeOn) {
+            this._wireframeOn = false;
+            this.toggleWireframe();
+        }
     }
 
-        /* ============================================================
-                    Measure tool
-    ============================================================ */
-
+    /* ============================================================
+       Measure tool
+       ============================================================ */
     setMeasureMode(on) {
         on = !!on;
         if (this._measureMode === on) return;
@@ -214,7 +337,7 @@ export class Viewer {
         }
     }
 
-   clearMeasurement() {
+    clearMeasurement() {
         this._disposeMeasureGroup();
         this._measurePoints = [];
         if (this._measurePreview) this._measurePreview.visible = false;
@@ -615,12 +738,21 @@ export class Viewer {
         disposeObject(this.modelRoot);
         this.modelRoot = newRoot;
         this.scene.add(this.modelRoot);
-        this.refreshSectionBounds();              // ← cache bbox baru
-        this._applySectionToModel();              // ← material baru, apply clipping
-        this._updateSectionIndicator();           // ← indicator ikut bbox baru
-        this._refreshDimensionOverlay();
-        this._buildSnapCache();                    // ← add
+        
+        // Terapkan pengaturan shadow ke mesh baru
+        const cast = this._currentLighting !== 'default';
+        this.modelRoot.traverse(o => {
+            if (o.isMesh) {
+                o.castShadow = cast;
+                o.receiveShadow = cast;
+            }
+        });
 
+        this.refreshSectionBounds();
+        this._applySectionToModel();
+        this._updateSectionIndicator();
+        this._refreshDimensionOverlay();
+        this._buildSnapCache();
     }
 
     clearModel() {
@@ -636,9 +768,8 @@ export class Viewer {
     }
 
     /* ============================================================
-   Dimension overlay (bbox wireframe + dimension lines)
-   ============================================================ */
-
+       Dimension overlay (bbox wireframe + dimension lines)
+       ============================================================ */
     toggleDimensions() {
         this._dimensionVisible = !this._dimensionVisible;
         this._refreshDimensionOverlay();
@@ -668,10 +799,9 @@ export class Viewer {
         }
     }
 
-        /* ============================================================
-    Section / clipping plane
-    ============================================================ */
-
+    /* ============================================================
+       Section / clipping plane
+       ============================================================ */
     refreshSectionBounds() {
         if (!this.hasModel()) { this._sectionBounds = null; return null; }
         this.modelRoot.updateMatrixWorld(true);
@@ -1035,16 +1165,52 @@ export class Viewer {
         }
     }
 
-
     toggleWireframe() {
-        let w = false;
+        this._wireframeOn = !this._wireframeOn;
+        const w = this._wireframeOn;
+
+        /* 1. Hapus semua overlay wireframe lama (jika ada) */
+        const toRemove = [];
         this.modelRoot.traverse(o => {
-            if (o.isMesh && o.material) {
-                if (Array.isArray(o.material)) o.material.forEach(m => { m.wireframe = !m.wireframe; w = m.wireframe; });
-                else { o.material.wireframe = !o.material.wireframe; w = o.material.wireframe; }
+            if (o.userData.isWireframeOverlay) toRemove.push(o);
+        });
+        for (const o of toRemove) {
+            o.parent.remove(o);
+            o.geometry.dispose();
+            o.material.dispose();
+        }
+
+        if (!w) return false;
+
+        /* 2. Buat garis overlay baru */
+        // Di theme terang, garis berwarna gelap. Di theme gelap, garis terang.
+        const lineColor = this._theme === 'light' ? 0x333333 : 0xaaaaaa;
+
+        this.modelRoot.traverse(o => {
+            if (o.isMesh && o.geometry) {
+                /* 
+                 * Threshold 15 derajat: Hanya gambar garis jika perubahan sudut > 15°.
+                 * Ini akan membuang semua garis diagonal pada permukaan datar!
+                 */
+                const edges = new THREE.EdgesGeometry(o.geometry, 15);
+                const lineMat = new THREE.LineBasicMaterial({
+                    color: lineColor,
+                    transparent: true,
+                    opacity: 0.85,
+                    depthTest: true
+                });
+                
+                const line = new THREE.LineSegments(edges, lineMat);
+                line.userData.isWireframeOverlay = true;
+                
+                // Agar garis digambar di atas model
+                line.renderOrder = 1; 
+                
+                o.add(line);
             }
         });
-        return w;
+        
+        return true;
     }
 
     toggleGrid() {
@@ -1053,10 +1219,8 @@ export class Viewer {
     }
 
     /* ============================================================
-   Capture
-   ============================================================ */
-
-    /** PNG screenshot di resolusi = viewport × scale (cap 4096). */
+       Capture
+       ============================================================ */
     captureScreenshot(scale = 2) {
         const w = Math.min(Math.round(this.container.clientWidth * scale), 4096);
         const h = Math.min(Math.round(this.container.clientHeight * scale), 4096);
@@ -1081,11 +1245,6 @@ export class Viewer {
         }
     }
 
-        /**
-     * Capture current view as ImageData.
-     * @param {number} size          - lebar/tinggi (px)
-     * @param {WebGLRenderer} [reuse] - reuse offscreen renderer (untuk loop animasi — hindari leak context)
-     */
     captureImageData(size = 480, reuse = null) {
         const w = size, h = size;
         const offscreen = reuse || this._createOffscreen(w, h);
@@ -1112,13 +1271,6 @@ export class Viewer {
         }
     }
 
-    /**
-     * Iterasi turntable: panggil onFrame(ImageData, index, total) untuk tiap frame.
-     * Kamera diputar 360° mengelilingi sumbu Z (up), elevasi & jarak dipertahankan.
-     *
-     * @param {{frames?:number, size?:number, signal?:AbortSignal}} opts
-     * @param {(imageData:ImageData, i:number, total:number)=>void|Promise<void>} onFrame
-     */
     async iterateTurntable({ frames = 36, size = 480, signal } = {}, onFrame) {
         const w = Math.min(size, 2048);
         const h = w;
@@ -1176,7 +1328,6 @@ export class Viewer {
     }
 
     /* --- internal --- */
-
     _createOffscreen(w, h) {
         const r = new THREE.WebGLRenderer({
             antialias: true,
@@ -1197,7 +1348,6 @@ export class Viewer {
         r.domElement.remove();
     }
 
-    /** FOV vertikal baru agar horizontal FOV tetap sama saat aspect berubah. */
     _fovForAspect(oldFov, oldAspect, newAspect) {
         const oldVHalf = (oldFov * Math.PI) / 360;          // half vertical rad
         const tanNew = Math.tan(oldVHalf) * oldAspect / newAspect;

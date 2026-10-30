@@ -3,8 +3,8 @@ export const CONFIG = {
   defaultFa: 12,          // maximum angle per segment (deg)
   defaultFs: 2,           // minimum arc length per segment (mm)
   fallbackFn: 32,         // dipakai saat $fa/$fs tidak applicable (no radius info)
-  evalTimeoutMs: 5000,    // render standar butuh beberapa detik tergantung device
-  maxTimeoutMs: 60000,      // hardcap absolute
+  evalTimeoutMs: 15000,    // render standar butuh beberapa detik tergantung device
+  maxTimeoutMs: 120000,      // hardcap absolute
   autoRenderDelay: 800,
   saveDelay: 500,
   maxLoopIterations: 20000,

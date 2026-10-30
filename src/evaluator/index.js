@@ -36,13 +36,14 @@ export class EvalContext {
         const elapsed = now - this.start;
         const pct = elapsed / this.timeoutMs;
 
-        /* --- Progressive warnings --- */
+        /* --- Warning HANYA di 75% (mendekati timeout) --- */
         if (pct >= 0.75 && !this._warned75) {
             this._warned75 = true;
-            this.warn(`Render lambat: ${Math.round(pct * 100)}% waktu habis (${Math.round(elapsed)}/${this.timeoutMs} ms). Pertimbangkan naikkan $maxTime.`);
-        } else if (pct >= 0.5 && !this._warned50) {
-            this._warned50 = true;
-            this.warn(`Render sudah ${Math.round(pct * 100)}% waktu habis (${Math.round(elapsed)}/${this.timeoutMs} ms).`);
+            this.warn(
+                `⏱ Render lambat: sudah ${Math.round(pct * 100)}% dari batas waktu ` +
+                `(${Math.round(elapsed)}/${this.timeoutMs} ms). ` +
+                `Jika sering muncul, tambahkan '$maxTime = ${this.timeoutMs * 2};' di baris atas kode.`
+            );
         }
 
         /* --- Timeout --- */
@@ -51,9 +52,9 @@ export class EvalContext {
                 ? ` saat '${this.currentOp.name}'${this.currentOp.line ? ` (line ${this.currentOp.line})` : ''}`
                 : '';
             const recent = this.moduleStack.slice(-5).map(s => s.name).join(' → ');
-            const chainInfo = recent ? `\n   Di module: ... → ${chain}` : '';
+            const chainInfo = recent ? `\n   Di module: ... → ${recent}` : '';
             const hint =
-                `Coba: (1) naikkan $maxTime = ${this.timeoutMs * 2}; di baris atas, ` +
+                `Coba: (1) tambahkan '$maxTime = ${this.timeoutMs * 2};' di baris atas, ` +
                 `(2) kurangi $fn (sekarang ${this._currentFn()}), ` +
                 `(3) perkecil loop, atau (4) klik Cancel.` +
                 chainInfo;

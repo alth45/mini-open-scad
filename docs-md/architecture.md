@@ -8,15 +8,19 @@
 
 ```
 mini-open-scad/
-├── index.html              # entry HTML
-├── package.json
-├── vite.config.js
+├── ├── index.html              # entry HTML
+├── public/
+│   └── manifold.wasm       # WebAssembly biner untuk engine CSG
 ├── src/
 │   ├── main.js             # wiring semua modul
 │   ├── config.js           # konfigurasi + presets
 │   ├── state.js            # global state
 │   ├── utils.js            # SCADError, helpers
-│   ├── utils/suggest.js    # Levenshtein untuk friendly errors
+│   ├── format.js           # Auto-formatter OpenSCAD (custom)
+│   ├── share.js            # encode/decode share URL
+│   ├── gif.js              # GIF encoder wrapper
+│   ├── profiler.js         # Performance profiler
+│   ├── tabs.js             # TabManager
 │   ├── core/               # parsing bahasa
 │   │   ├── tokenizer.js
 │   │   ├── parser.js
@@ -28,10 +32,12 @@ mini-open-scad/
 │   │   ├── builtins.js     # module 3D/2D/transform/CSG
 │   │   ├── functions.js    # fungsi matematika
 │   │   ├── geometry.js     # Three.js helpers
+│   │   ├── manifold-engine.js # Integrasi WebAssembly Manifold-3d
+│   │   ├── mesh-utils.js   # Geometry cleaning (weld, degenerate)
 │   │   ├── params.js       # applyParams (override AST)
-│   │   └── csg.js          # three-bvh-csg setup
+│   │   └── csg.js          # three-bvh-csg setup (Fallback)
 │   ├── viewer/             # 3D rendering
-│   │   ├── scene.js        # Viewer class
+│   │   ├── scene.js        # Viewer class, camera, measure, section
 │   │   └── model.js        # buildModel, serialize/deserialize
 │   ├── worker/             # Web Worker
 │   │   ├── eval-worker.js
@@ -44,10 +50,12 @@ mini-open-scad/
 │   │   ├── status.js
 │   │   ├── params-panel.js
 │   │   ├── tabbar.js
-│   │   └── cheatsheet.js
-│   ├── tabs.js             # TabManager
-│   ├── share.js            # encode/decode share URL
-│   ├── gif.js              # GIF encoder wrapper
+│   │   ├── cheatsheet.js
+│   │   ├── dropdown.js
+│   │   ├── home.js
+│   │   ├── find-replace.js
+│   │   └── profiler-panel.js
+│   ├── export.js           # STL, OBJ, GLB, glTF, PLY, 3MF exporter
 │   └── styles.css
 └── dist/                   # hasil build
 ```

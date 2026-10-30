@@ -5,7 +5,7 @@ import { preloadOpenTypeFonts } from '../evaluator/opentype-fonts.js';
 import { extractScadImports } from '../core/ast-utils.js';
 import { tokenize } from '../core/tokenizer.js';
 import { Parser } from '../core/parser.js';
-
+import { initManifold } from '../evaluator/manifold-engine.js';
 
 console.log('[eval-worker] module imports resolved');
 
@@ -67,6 +67,7 @@ self.onmessage = async (e) => {
     try {
         /* Pre-load all OpenType fonts (idempotent — di-cache) */
         await preloadOpenTypeFonts();
+        await initManifold();
 
         const importNames = extractImportNames(code);
         const files = importNames.length > 0 ? await loadFiles(importNames) : {};
@@ -86,6 +87,7 @@ self.onmessage = async (e) => {
         self.postMessage({
             ok: true,
             meshes: result.meshes,
+            shapes2d: result.shapes2d,
             ms: result.ms,
             breakdown: result.breakdown,
             opTimings: result.opTimings,

@@ -46,6 +46,13 @@ export function createHomeScreen(containerEl, callbacks) {
                   <span class="home-menu-desc">Load file 3D dari disk</span>
                 </span>
               </button>
+              <button class="home-menu-item" data-action="load-zip">
+                <span class="home-menu-icon">📦</span>
+                <span class="home-menu-content">
+                  <span class="home-menu-label">Load Project (.zip)</span>
+                  <span class="home-menu-desc">Buka project dari file backup</span>
+                </span>
+              </button>
               <button class="home-menu-item" data-action="files">
                 <span class="home-menu-icon">📁</span>
                 <span class="home-menu-content">
@@ -124,6 +131,15 @@ export function createHomeScreen(containerEl, callbacks) {
     }
 
     function attachListeners() {
+        containerEl.querySelectorAll('[data-action]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const action = btn.dataset.action;
+                if (action === 'show-more') { showAllFiles = true; render(); return; }
+                if (action === 'show-less') { showAllFiles = false; render(); return; }
+                callbacks.onAction?.(action);
+            });
+        });
+
         containerEl.querySelectorAll('[data-action]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const action = btn.dataset.action;

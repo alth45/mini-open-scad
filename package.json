@@ -9,7 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "fflate": "^0.8.3",
     "gifenc": "^1.0.3",
+    "manifold-3d": "^3.5.4",
     "opentype.js": "^2.0.0",
     "three": "0.160.1",
     "three-bvh-csg": "0.0.16",

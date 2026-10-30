@@ -305,6 +305,63 @@ Line 12: Variabel tidak dikenal: 'raduis'
 - 🎚️ Threshold adaptif berdasarkan panjang nama
 
 ---
+# 🆕 Fitur Terbaru (Changelog Fitur)
+
+> ← Kembali ke [README utama](../README.md)
+
+> Dokumen ini mencatat **fitur-fitur terbaru yang sudah terimplementasi** di Mini OpenSCAD.
+
+---
+
+## 🧊 1. Migrasi ke Manifold Engine (CSG Watertight)
+Kita telah mengganti engine CSG utama dari `three-bvh-csg` ke **`manifold-3d` (WebAssembly)**.
+- **Hasil 100% Watertight**: Model yang diexport ke STL / 3MF tidak akan memiliki "garis merah" (non-manifold edges) di Slicer.
+- **Performa & Presisi**: Operasi `difference`, `union`, dan `intersection` dihitung secara matematis.
+- **Shading Sempurna**: Hasil boolean menghasilkan *flat shading* yang menyerupai OpenSCAD asli.
+
+## 📦 2. Multi-Format Export
+Tombol Export kini berupa dropdown dengan 7 pilihan format:
+- **STL** — Binary mesh standar 3D printing.
+- **3MF** — Format modern (ZIP+XML), watertight, mendukung unit (mm).
+- **OBJ** — Wavefront mesh universal.
+- **GLB / glTF** — Format 3D modern berbasis JSON (mendukung material PBR).
+- **PLY** — Mesh dengan vertex colors (scientific).
+- **.scad** — Source code dengan parameter ter-*bake*.
+
+## 🎥 3. Camera View Presets & Fullscreen
+- **7 Preset Kamera**: Tombol cepat di bawah viewport (ISO, Front, Right, Top, Back, Left, Bottom).
+- **View Persistence**: Kamera tidak akan *snap* kembali ke ISO saat render ulang; view user dipertahankan.
+- **Fullscreen Viewport**: Tekan `F` atau tombol ⛶ untuk menyembunyikan editor dan fokus penuh ke 3D.
+
+## ✂️ 4. Section / Clipping Plane
+Memotong model 3D secara *real-time* di sumbu X, Y, atau Z. Sangat berguna untuk melihat rongga di dalam casing atau memeriksa ketebalan dinding (*wall thickness*).
+- Line indicator biru.
+- Slider posisi dan tombol Flip Side.
+
+## 📏 5. Dimension Overlay
+Menampilkan *Bounding Box* (BBox) dan garis dimensi X, Y, Z secara otomatis di sekeliling model. Label menggunakan sprite yang selalu menghadap kamera (tidak terpengaruh rotasi).
+
+## 📐 6. Measure Tool (Vertex/Edge/Face Snapping)
+Alat ukur CAD interaktif.
+- Klik 2 titik di model untuk mengukur jarak (Distance) dan delta per sumbu (ΔX, ΔY, ΔZ).
+- **Snapping**: Kursor akan otomatis "menempel" ke Vertex, Edge Midpoint, atau Face Center terdekat dengan radius 20px di layar (screen-space snapping).
+
+## 🎬 7. Param Animation + GIF Export
+Menganimate satu parameter *slider* (0 → 1 → 0 dengan cosine easing).
+- **Live Preview**: Model bergerak langsung di layar.
+- **Export GIF**: Merender frame-by-frame dan mengunduhnya sebagai file `.gif`.
+
+## ⌨️ 8. Editor Upgrades (VS Code Style)
+- **Code Folding**: Klik ikon `▾` di gutter untuk melipat block `{...}`.
+- **Auto-format Code**: `Shift+Alt+F` merapikan indentasi dan spasi.
+- **Toggle Line Comment**: `Ctrl+/` untuk mengomentari baris yang dipilih.
+- **Multi-cursor**: `Ctrl+Alt+↓` atau `Ctrl+Click` untuk menambahkan kursor tambahan (best-effort untuk `<textarea>`).
+
+## 🎨 9. Color Support & Preserve Color in CSG
+Material dan warna (`color("red")`) sekarang tidak hilang saat dieksekusi di dalam `difference()` atau `union()`. Hasil CSG akan mewarisi warna dari *base object* (objek pertama).
+
+## ☀️ 10. Light / Dark Theme
+Tema gelap dan terang yang menyesuaikan seluruh antarmuka, syntax highlighting editor, hingga warna background Three.js dan Grid.
 
 ## 📋 Ringkasan Fitur per Kategori
 

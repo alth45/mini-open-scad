@@ -22,7 +22,7 @@ Editor OpenSCAD ringan yang berjalan 100% di browser. Tidak butuh install, tidak
 
 ---
 
-## ✨ Fitur
+## ✨ Fitur 
 
 ### Bahasa
 - **Primitives 3D** — `cube`, `sphere`, `cylinder`, `polyhedron`
@@ -56,6 +56,29 @@ Editor OpenSCAD ringan yang berjalan 100% di browser. Tidak butuh install, tidak
 
 ---
 
+## ✨ Fitur Lanjutan
+
+### Engine & Bahasa
+- **CSG Engine** — Beralih ke **`manifold-3d` (WebAssembly)**. Hasil STL/3MF dijamin *watertight* (100% siap 3D printing) tanpa garis merah di Slicer.
+- **Primitives 3D & 2D** — `cube`, `sphere`, `cylinder`, `polyhedron`, `circle`, `square`, `polygon`, `text` (CJK support).
+- **Transforms** — `translate`, `rotate`, `scale`, `mirror`, `resize`, `multmatrix`, `color` (Warna tetap terjaga setelah CSG).
+- **Boolean (CSG)** — `union`, `difference`, `intersection`, `hull`, `minkowski`.
+- **Extrusions & Offsets** — `linear_extrude`, `rotate_extrude`, `offset` (2D & 3D).
+- **Control flow & Functions** — `for`, `if/else`, `module`, `function`, `children()`, `let()`, list comprehension.
+- **Modifiers & Debug** — `*` (disable), `!` (show-only), `#`, `echo`, `assert`.
+- **STL import** — `import("model.stl")` dengan drag & drop.
+
+### Tool & UI
+- **Editor Pro** — Syntax highlighting, line numbers, undo/redo, **Code Folding**, **Auto-format (`Shift+Alt+F`)**, **Toggle Line Comment (`Ctrl+/`)**, dan **Multi-cursor (Ctrl+Alt+↓)**.
+- **3D Viewer Advanced** — OrbitControls, **Camera View Presets (ISO, FRT, RGT, TOP, dll)**, **Fullscreen Mode**, **Section / Clipping Plane**, dan **Dimension Overlay** (BBox X/Y/Z).
+- **Measure Tool** — Ukur jarak antar 2 titik dengan **Vertex/Edge/Face Snapping** (CAD-grade precision).
+- **Param Animation** — Animasikan slider parameter (ping-pong) dan ekspor menjadi **Turntable / Param GIF**.
+- **Multi-format Export** — STL, **3MF** (modern, watertight), OBJ, GLB, glTF, PLY, dan `.scad` (source code).
+- **Parameter UI** — Slider, enum, color, bool otomatis dari `// @param` atau OpenSCAD customizer.
+- **Share & Save** — Simpan ke localStorage, Share via URL (gzip), dan Multi-tab project.
+- **Light / Dark Theme** — Toggle tema dengan persistensi localStorage.
+
+---
 ## 🚀 Quick Start
 
 ### Prasyarat
@@ -193,8 +216,10 @@ Proyek ini berdiri di atas kerja keras komunitas open-source:
 |:---|:---|
 | 🧩 **OpenSCAD** | Inspirasi bahasa & filosofi |
 | 🎨 **Three.js** | Rendering 3D |
+| 🧊 **Manifold-3d** | CSG Engine (Watertight 3D Printing) |
 | 🔧 **three-bvh-csg** | CSG engine |
 | 🎞️ **gifenc** | GIF encoding |
+| 🗜️ **fflate** | Kompresi ZIP untuk export 3MF |
 | ⚡ **Vite** | Build tool |
 
 ---

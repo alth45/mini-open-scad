@@ -30,13 +30,19 @@
                     class="lbl">Redo</span></button>
             <button id="btnRender" class="primary" title="Render (Ctrl+Enter)"><i class="fa-solid fa-play"></i> <span
                     class="lbl">Render</span></button>
-            <button id="btnExport" title="Export STL"><i class="fa-solid fa-download"></i> <span class="lbl">Export
-                    STL</span></button>
+            
+            <!-- Dropdown Multi-Format Export (STL, 3MF, OBJ, GLB, glTF, PLY, .scad) -->
+            <div id="exportDropdown" class="dd-root"></div>
+            
+            <!-- Dropdown Presets -->
             <div id="presetDropdown" class="dd-root"></div>
+            
             <button id="btnClear" title="Kosongkan editor"><i class="fa-solid fa-trash"></i> <span
                     class="lbl">Clear</span></button>
             <button id="btnShare" title="Share via URL"><i class="fa-solid fa-link"></i> <span
                     class="lbl">Share</span></button>
+            <button id="btnSaveProject" title="Save Project as .zip"><i class="fa-solid fa-box"></i> <span
+                    class="lbl">Save Proj</span></button>
             <button id="btnPng" title="Screenshot PNG (2×)"><i class="fa-solid fa-camera"></i> <span
                     class="lbl">PNG</span></button>
             <button id="btnGif" title="Turntable GIF"><i class="fa-solid fa-film"></i> <span
@@ -48,7 +54,7 @@
         <!-- ZONA KANAN — fixed -->
         <div id="topbar-right">
             <button id="btnPreview" title="Preview mode (fast) — klik untuk render final (F6)"><i
-                    class="fa-solid fa-eyes"></i> <span class="lbl">Preview</span></button>
+                    class="fa-solid fa-eye"></i> <span class="lbl">Preview</span></button>
             <button id="btnParams" title="Toggle parameter panel"><i class="fa-solid fa-gear"></i> <span
                     class="lbl">Params</span></button>
             <button id="btnProfiler" title="Performance profiler"><i class="fa-solid fa-chart-bar"></i> <span
@@ -94,11 +100,11 @@
         <section id="right">
             <div id="viewport"></div>
             <div id="viewportOverlay">
-                <button id="btnWireframe" title="Toggle wireframe"><i class="fa-solid fa-wireframe"></i>
+                <button id="btnWireframe" title="Toggle wireframe"><i class="fa-solid fa-border-all"></i>
                     Wireframe</button>
-                <button id="btnGrid" class="toggle-on" title="Toggle grid"><i class="fa-solid fa-grid"></i>
+                <button id="btnGrid" class="toggle-on" title="Toggle grid"><i class="fa-solid fa-border-none"></i>
                     Grid</button>
-                <button id="btnReset" title="Reset view"><i class="fa-solid fa-reset"></i> Reset view</button>
+                <button id="btnReset" title="Reset view"><i class="fa-solid fa-arrows-to-dot"></i> Reset view</button>
             </div>
             <div id="viewInfo">—</div>
             <div id="fps">– fps</div>
@@ -116,7 +122,7 @@
 
     <div id="toast"></div>
 
-    <!--MODAL-->
+    <!--MODAL SHARE-->
     <div id="shareModal" class="modal-backdrop hidden">
         <div class="modal">
             <div class="modal-title">
@@ -128,18 +134,18 @@
                     karakter.</p>
                 <textarea id="shareUrl" readonly rows="4"></textarea>
                 <div id="shareWarn" class="modal-warning hidden">
-                    <i class="fa-solid fa-warning"></i> URL panjang (>8000 karakter). Chat apps & email client kadang
+                    <i class="fa-solid fa-triangle-exclamation"></i> URL panjang (>8000 karakter). Chat apps & email client kadang
                     memotong URL sepanjang ini.
                 </div>
             </div>
             <div class="modal-footer">
                 <button id="shareCopy" class="primary"><i class="fa-solid fa-copy"></i> Copy URL</button>
-                <button id="shareOpen">↗ Open</button>
+                <button id="shareOpen"><i class="fa-solid fa-arrow-up-right-from-square"></i> Open</button>
             </div>
         </div>
     </div>
 
-    <!--Modal Gif-->
+    <!--MODAL GIF-->
     <div id="gifModal" class="modal-backdrop hidden">
         <div class="modal">
             <div class="modal-title">
@@ -179,10 +185,10 @@
         </div>
     </div>
 
-    <!--CHEATSHEET MODAL-->
+    <!--MODAL CHEATSHEET-->
     <div id="cheatModal" class="modal-backdrop hidden"></div>
 
-    <!--Modal stl import-->
+    <!--MODAL FILES (STL/SCAD IMPORT)-->
     <div id="filesModal" class="modal-backdrop hidden">
         <div class="modal">
             <div class="modal-title">
@@ -200,14 +206,18 @@
         </div>
     </div>
 
+    <!-- DROP OVERLAY -->
     <div id="dropOverlay" class="drop-overlay hidden">
         <div class="drop-inner"><i class="fa-solid fa-file-arrow-up"></i> Drop STL file to import</div>
     </div>
 
-    <!--CONTAINER HOME-->
+    <!-- HIDDEN INPUT UNTUK PROJECT ZIP -->
+    <input type="file" id="projectZipInput" accept=".zip" hidden>
+
+    <!-- CONTAINER HOME -->
     <div id="homeScreen" class="home-screen hidden"></div>
 
-    <!--Profiler panel-->
+    <!-- PROFILER PANEL -->
     <div id="profilerPanel" class="hidden"></div>
 
     <script type="module" src="./src/main.js"></script>
