@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Peta Ketergantungan — Mini OpenSCAD Docs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+<div class="brand"><h1>Mini OpenSCAD</h1><p>Dokumentasi Kode</p></div>
+<nav class="nav">
+<a href="index.html">← Overview</a>
+<div class="nav-group-title">Ketergantungan</div>
+<a href="graph.html#overview">Ikhtisar Arsitektur</a>
+<a href="graph.html#main-thread">Main Thread (UI)</a>
+<a href="graph.html#worker-thread">Worker Thread (Engine)</a>
+<a href="graph.html#app-modules">App Modules (src/app)</a>
+<a href="graph.html#export-flow">Alur Export</a>
+</nav>
+</aside>
+<main class="content">
+<h1 class="page-title" id="overview">Peta Ketergantungan (Call Graph)</h1>
+<p class="page-sub">Bagaimana setiap modul saling terhubung dalam arsitektur Mini OpenSCAD.</p>
+
+<div class="callout info">
+  <b>Prinsip Modularitas:</b> Aplikasi ini sengaja dipisahkan menjadi dua dunia: <b>Main Thread</b> (UI, DOM, Render 3D) dan <b>Worker Thread</b> (Murni matematika, Parsing, CSG Manifold). Keduanya hanya berkomunikasi lewat <code>postMessage</code>.
+</div>
+
+<h2 id="main-thread">1. Main Thread (UI &amp; Orkestrasi)</h2>
+<p>Alur impor di <code>main.js</code>. Tanda panah (<code>→</code>) berarti "mengimpor/menggunakan".</p>
+
+<div class="flow"><span class="hl">main.js</span> (Orkestrator)
+  ├─ <span class="hl">app/shortcuts.js</span>          (Mendaftarkan event keyboard global)
+  ├─ <span class="hl">app/viewer-tools.js</span>       (Kamera, Section, Measure, Dims)
+  ├─ <span class="hl">app/capture.js</span>            (PNG, Turntable GIF, Param Anim)
+  ├─ <span class="hl">app/export-ui.js</span>          (Dropdown Export & Save Project)
+  │
+  ├─ <span class="hl">viewer/scene.js</span>           (Class Viewer: WebGL, Lights, Raycaster)
+  ├─ <span class="hl">ui/editor.js</span>               (Textarea overlay, folding, multi-cursor)
+  ├─ <span class="hl">ui/params-panel.js</span>        (Render slider @param)
+  ├─ <span class="hl">ui/tabbar.js, home.js, etc</span> (Modal & antarmuka)
+  │
+  └─ <span class="hl">worker/worker-client.js</span>   (Jembatan ke Worker)</div>
+
+<h2 id="worker-thread">2. Worker Thread (Engine CAD)</h2>
+<p>Alur yang berjalan di <i>background</i> saat tombol Render ditekan.</p>
+
+<div class="flow"><span class="hl">worker/eval-worker.js</span> (Menerima postMessage)
+  ├─ <span class="hl">evaluator/manifold-engine.js</span> (Memuat WASM)
+  ├─ <span class="hl">viewer/model.js</span> (buildModel)
+  │    ├─ <span class="hl">core/tokenizer.js</span>     (String → Token)
+  │    ├─ <span class="hl">core/parser.js</span>        (Token → AST)
+  │    ├─ <span class="hl">evaluator/index.js</span>    (AST → Mesh/Shape)
+  │    │    ├─ <span class="hl">evaluator/builtins.js</span> (cube, difference, dll)
+  │    │    │    ├─ <span class="hl">evaluator/manifold-engine.js</span> (CSG 3D/2D)
+  │    │    │    └─ <span class="hl">evaluator/geometry.js</span>       (Helper Three.js)
+  │    │    └─ <span class="hl">evaluator/functions.js</span> (sin, cos, min, dll)
+  │    └─ <span class="hl">viewer/model.js</span> (serializeModel → transferables)
+  └─ postMessage(data, transferables) → Kembali ke Main Thread</div>
+
+<h2 id="app-modules">3. Peta Modul UI (<code>src/app/</code>)</h2>
+<p>Modul-modul ini dibuat agar <code>main.js</code> tidak menjadi "God Object" (terlalu besar).</p>
+<table>
+  <thead><tr><th>Modul</th><th>Bergantung Pada</th><th>Fungsi Utama</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>shortcuts.js</code></td>
+      <td>editor, findReplace, cheatSheet, animation</td>
+      <td>Menangani semua tombol <kbd>Ctrl</kbd>, <kbd>F5</kbd>, <kbd>Esc</kbd>.</td>
+    </tr>
+    <tr>
+      <td><code>viewer-tools.js</code></td>
+      <td>viewer, state</td>
+      <td>Menyuntikkan tombol Fullscreen, View Presets, dan Section ke DOM.</td>
+    </tr>
+    <tr>
+      <td><code>capture.js</code></td>
+      <td>viewer, gifenc, editor</td>
+      <td>Merekam layar (PNG/GIF) dan menggerakkan slider otomatis.</td>
+    </tr>
+    <tr>
+      <td><code>export-ui.js</code></td>
+      <td>export.js, export-2d.js, project-backup.js</td>
+      <td>Membangun dropdown dan memanggil fungsi download.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="export-flow">4. Alur Data Export (3D &amp; 2D)</h2>
+<p>Bagaimana model dari Viewer bisa menjadi file yang bisa dibuka di Slicer / AutoCAD.</p>
+
+<div class="flow"><span class="hl">app/export-ui.js</span> (Klik User)
+  │
+  ├─ <b>Export 3D</b> (STL/3MF/OBJ/GLB/PLY)
+  │    └─ <span class="hl">export.js</span>
+  │         ├─ memanggil <code>viewer.modelRoot</code> (Mesh dari Manifold)
+  │         ├─ menggunakan <code>mergeVertices</code> (khusus 3MF)
+  │         └─ memicu <code>downloadBlob()</code>
+  │
+  ├─ <b>Export 2D</b> (SVG/DXF)
+  │    └─ <span class="hl">export-2d.js</span>
+  │         ├─ membaca <code>state.last2dShapes</code> (Kontur 2D hasil ekstraksi Manifold)
+  │         └─ menulis string XML (SVG) atau string DXF R12
+  │
+  └─ <b>Save Project</b> (.zip)
+       └─ <span class="hl">project-backup.js</span>
+            ├─ membaca <code>tabManager.active</code>
+            ├─ mengambil file STL dari <code>files/file-store.js</code> (IndexedDB)
+            └─ membungkusnya dengan <code>fflate</code> (zipSync)</div>
+
+
+
+</main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

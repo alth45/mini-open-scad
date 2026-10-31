@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>UI Modules — Mini OpenSCAD Docs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+<div class="brand"><h1>Mini OpenSCAD</h1><p>Dokumentasi Kode</p></div>
+<nav class="nav">
+<a href="index.html">← Overview</a>
+<div class="nav-group-title">UI Modules</div>
+<a href="ui.html#editor">Code Editor</a>
+<a href="ui.html#console">Console &amp; Status</a>
+<a href="ui.html#params">Params Panel</a>
+<a href="ui.html#tabbar">Tab Bar</a>
+<a href="ui.html#modals">Modals &amp; Dropdown</a>
+<a href="ui.html#others">Find/Replace &amp; Profiler</a>
+</nav>
+</aside>
+<main class="content">
+<h1 class="page-title" id="ui">UI Modules</h1>
+<p class="page-sub">Komponen antarmuka yang memisahkan logika visual dari engine evaluasi.</p>
+
+<div class="callout info">
+  <b>Prinsip Desain UI:</b> Semua komponen UI bersifat <i>stateless</i> sebisa mungkin. Mereka menerima data dari <code>main.js</code> atau <code>state.js</code>, merendernya, dan memanggil <i>callback</i> jika user berinteraksi. UI tidak pernah menyimpan data project secara langsung.
+</div>
+
+<h2 id="editor">1. Code Editor (<code>src/ui/editor.js</code>)</h2>
+<p>Menggunakan pendekatan <i>Textarea Overlay</i>: ada <code>&lt;textarea&gt;</code> transparan di atas <code>&lt;pre&gt;</code> yang berisi syntax highlighting.</p>
+
+<div class="fn" id="fn-createeditor">
+  <div class="fn-head"><span class="fn-name">createEditor({ editorEl, highlightEl, gutterEl, onChange, ... })</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-sig">(options) → EditorAPI</div>
+  <div class="fn-desc">Menginisialisasi editor. Mengembalikan API untuk mengontrol isi editor dan history (undo/redo).</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">setValue(value, { recordHistory })</span><span class="fn-kind kind-method">method</span></div>
+  <div class="fn-desc">Mengganti seluruh teks di editor. Jika <code>recordHistory=false</code> (dipakai saat pindah tab), history akan di-reset.</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">toggleLineComment()</span><span class="fn-kind kind-method">method</span></div>
+  <div class="fn-desc">Mengomentari/membuka komentar pada baris yang dipilih (<code>// </code>). Jika semua baris terpilih sudah dikomentari, ia akan membuka komentarnya.</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">onValueChange(fn)</span><span class="fn-kind kind-method">method</span></div>
+  <div class="fn-desc">Event listener untuk mendeteksi perubahan nilai (dipakai oleh Find/Replace dan Auto-format).</div>
+</div>
+
+<p><b>Fitur Editor Lainnya:</b> Code Folding (melipat blok <code>{...}</code>), Multi-cursor (Ctrl+Click), dan History dengan <i>debounce</i> (agar Ctrl+Z tidak per huruf).</p>
+
+<h2 id="console">2. Console &amp; Status (<code>src/ui/console.js</code> &amp; <code>status.js</code>)</h2>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">log(level, msg)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-sig">(level: 'info'|'warn'|'error'|'ok', msg: string)</div>
+  <div class="fn-desc">Menambahkan pesan ke panel console bawah. Memberi warna sesuai level (merah untuk error, kuning untuk warning) dan menaikkan badge counter.</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">setStatus(kind, text, showCancel)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-desc">Mengubah indikator status di topbar (titik hijau = Ready, kuning berkedip = Rendering, merah = Error).</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">toast(msg)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-desc">Menampilkan notifikasi melayang (muncul 2 detik lalu hilang). Digunakan untuk feedback seperti "💾 Saved" atau "⬇ Export OK".</div>
+</div>
+
+<h2 id="params">3. Params Panel (<code>src/ui/params-panel.js</code>)</h2>
+<p>Panel dinamis yang di-<i>generate</i> dari anotasi <code>// @param</code> di dalam kode user.</p>
+
+<div class="fn" id="fn-createparamspanel">
+  <div class="fn-head"><span class="fn-name">createParamsPanel({ panelEl, bodyEl, onChange, ... })</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-sig">(options) → ParamsAPI</div>
+  <div class="fn-desc">Membuat panel. Memetakan tipe data dari <code>core/params.js</code> ke elemen HTML: <code>slider</code> (input range), <code>enum</code> (select), <code>color</code> (input color), dan <code>bool</code> (checkbox).</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">setParams(params, values)</span><span class="fn-kind kind-method">method</span></div>
+  <div class="fn-desc">Menerima array definisi parameter dan nilai saat ini, lalu merender ulang semua kontrol input.</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">setValue(name, value)</span><span class="fn-kind kind-method">method</span></div>
+  <div class="fn-desc">Memperbarui UI slider secara <i>silent</i> (tanpa memicu ulang <code>onChange</code>). Digunakan oleh Param Animation saat menggerakkan slider.</div>
+</div>
+
+<h2 id="tabbar">4. Tab Bar (<code>src/ui/tabbar.js</code>)</h2>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">render(tabs, activeId, callbacks)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-desc">Merender daftar tab di bawah topbar. Mendukung fitur <i>Double-click to Rename</i>, tombol Close (×), dan tombol Add (+).</div>
+</div>
+
+<h2 id="modals">5. Modals &amp; Dropdown</h2>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">createCheatSheet(containerEl)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-desc">Modal referensi syntax dan shortcut (muncul saat tekan <code>?</code>). Memiliki fitur pencarian (filter real-time) untuk mencari fungsi seperti <code>cube</code> atau <code>rotate</code>.</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">createDropdown({ container, items, onSelect })</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-desc">Komponen dropdown custom. Menggunakan <code>position: fixed</code> agar tidak terpotong oleh <i>overflow: hidden</i> pada parent-nya (masalah umum di topbar yang scrollable).</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">createHomeScreen(containerEl, callbacks)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-desc">Layar sambutan awal (New Project, Import STL, Load ZIP). Menampilkan grid file STL yang tersimpan di IndexedDB (maksimal 5 file).</div>
+</div>
+
+<h2 id="others">6. Find/Replace &amp; Profiler</h2>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">createFindReplace({ editorEl, containerEl, ... })</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-desc">Bar pencarian (Ctrl+F). Mendukung pencarian <i>case-sensitive</i> (Aa), <i>whole word</i> (W), dan Replace/Replace All. Menampilkan highlight kuning pada textarea overlay.</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">createProfilerPanel(panelEl)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-desc">Menampilkan metrik render (Current, History, Hotspots). Sangat membantu developer untuk melihat bagian mana dari kode yang memakan waktu paling lama (misal: operasi <code>difference</code> 500ms).</div>
+</div>
+
+</main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

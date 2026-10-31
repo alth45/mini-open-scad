@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Geometry, Manifold & CSG — Mini OpenSCAD Docs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+<div class="brand"><h1>Mini OpenSCAD</h1><p>Dokumentasi Kode</p></div>
+<nav class="nav">
+<a href="index.html">← Overview</a>
+<div class="nav-group-title">Geometry & CSG</div>
+<a href="geometry-csg.html#geometry-js">Geometry Helpers</a>
+<a href="geometry-csg.html#manifold-js">Manifold Engine</a>
+<a href="geometry-csg.html#mesh-utils">Mesh Utils</a>
+<a href="geometry-csg.html#csg-js">CSG Fallback</a>
+</nav>
+</aside>
+<main class="content">
+<h1 class="page-title" id="geometry-csg">Geometry, Manifold &amp; CSG</h1>
+<p class="page-sub">Lapisan yang mengurus pembentukan mesh, operasi boolean (Watertight), dan ekstraksi 2D.</p>
+
+<div class="callout info">
+  <b>Arsitektur Baru:</b> Mini OpenSCAD telah migrasi dari <code>three-bvh-csg</code> (JS) ke <b>Manifold-3D</b> (WebAssembly). Ini menjamin hasil boolean 100% <i>watertight</i> (siap 3D print). <code>three-bvh-csg</code> kini hanya berfungsi sebagai <i>fallback</i>.
+</div>
+
+<h2 id="geometry-js">1. Geometry Helpers (<code>src/evaluator/geometry.js</code>)</h2>
+<p>Kumpulan fungsi utilitas untuk manipulasi tipe data Three.js.</p>
+
+<div class="fn" id="fn-makemesh">
+  <div class="fn-head"><span class="fn-name">makeMesh(geometry)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-sig">geometry: THREE.BufferGeometry → THREE.Mesh</div>
+  <div class="fn-desc">Membungkus BufferGeometry menjadi Mesh dengan material standar (default color 0xf9d72c). Menyimpan properti <code>userData.scad = true</code> sebagai penanda.</div>
+  <div class="fn-links"><div class="fn-links-title">Dipanggil oleh:</div><div class="chips"><span class="chip">builtins.js</span><span class="chip">manifold-engine.js</span></div></div>
+</div>
+
+<div class="fn" id="fn-is2d">
+  <div class="fn-head"><span class="fn-name">is2D(obj)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-sig">obj: any → boolean</div>
+  <div class="fn-desc">Mengecek apakah objek merupakan representasi 2D (<code>__shape2d === true</code>). Digunakan oleh evaluator untuk memisahkan alur 2D dan 3D.</div>
+</div>
+
+<div class="fn" id="fn-collectworldgeometries">
+  <div class="fn-head"><span class="fn-name">collectWorldGeometries(obj)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-sig">obj: Object3D → THREE.BufferGeometry[]</div>
+  <div class="fn-desc">Mengekstrak seluruh BufferGeometry dari sebuah objek/group, lalu membakarnya (apply) ke koordinat dunia (World Space) berdasarkan <code>matrixWorld</code>.</div>
+</div>
+
+<h2 id="manifold-js">2. Manifold Engine (<code>src/evaluator/manifold-engine.js</code>)</h2>
+<p>Engine WebAssembly yang menjadi tulang punggung operasi Boolean (CSG) yang bersih dan presisi.</p>
+
+<div class="fn" id="fn-initmanifold">
+  <div class="fn-head"><span class="fn-name">initManifold()</span><span class="fn-kind kind-fn">async function</span></div>
+  <div class="fn-sig">() → Promise&lt;WasmModule&gt;</div>
+  <div class="fn-desc">Menginisialisasi engine WebAssembly Manifold. Memuat file <code>manifold.wasm</code> dari folder <code>public/</code>. Fungsi ini idempoten dan aman dipanggil berkali-kali.</div>
+  <div class="fn-links"><div class="fn-links-title">Dipanggil oleh:</div><div class="chips"><span class="chip">eval-worker.js</span><span class="chip">main.js</span></div></div>
+</div>
+
+<div class="fn" id="fn-objtomanifold">
+  <div class="fn-head"><span class="fn-name">objToManifold(obj)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-sig">obj: Object3D → Manifold</div>
+  <div class="fn-desc">Konversi Mesh/Group Three.js menjadi instance Manifold. <b>Penting:</b> Fungsi ini memanggil <code>updateMatrixWorld(true)</code> agar posisi (translate/rotate) tidak hilang saat diproses.</div>
+  <div class="fn-links"><div class="fn-links-title">Dipanggil oleh:</div><div class="chips"><span class="chip">builtins.js (union/difference/intersection)</span></div></div>
+</div>
+
+<div class="fn" id="fn-manifoldmeshtogeo">
+  <div class="fn-head"><span class="fn-name">manifoldMeshToGeo(mesh)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-sig">mesh: ManifoldMesh → THREE.BufferGeometry</div>
+  <div class="fn-desc">Mengonversi hasil Manifold kembali ke Three.js BufferGeometry. Geometri diubah menjadi <i>non-indexed</i> agar shading-nya tajam (flat shading).</div>
+  <div class="fn-links"><div class="fn-links-title">Dipanggil oleh:</div><div class="chips"><span class="chip">builtins.js</span></div></div>
+</div>
+
+<div class="callout warn">
+  <b>2D Boolean Trick:</b> Manifold tidak mendukung CSG 2D secara langsung. Di <code>builtins.js</code>, kita mengakalinya dengan cara: (1) Extrude shape 2D setipis 0.1mm, (2) Lakukan Boolean Manifold 3D, (3) Ekstrak garis luarnya (top-face) kembali menjadi 2D.
+</div>
+
+<h2 id="mesh-utils">3. Mesh Utils (<code>src/evaluator/mesh-utils.js</code>)</h2>
+<p>Fungsi pembersih mesh (digunakan saat engine *fallback* ke three-bvh-csg).</p>
+
+<div class="fn" id="fn-cleangeometry">
+  <div class="fn-head"><span class="fn-name">cleanGeometry(geometry)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-sig">geometry: BufferGeometry → BufferGeometry</div>
+  <div class="fn-desc">Membersihkan geometri: menyatukan vertex yang bertumpuk (<code>mergeVertices</code>) dan membuang segitiga dengan luas 0 (degenerate). Sangat berguna untuk mencegah error pada eksportir STL/3MF.</div>
+</div>
+
+<h2 id="csg-js">4. CSG Fallback (<code>src/evaluator/csg.js</code>)</h2>
+<p>Implementasi CSG lama berbasis JavaScript. Hanya digunakan jika Manifold gagal dimuat (misal browser tidak mendukung WASM).</p>
+
+<div class="fn" id="fn-makebrush">
+  <div class="fn-head"><span class="fn-name">makeBrush(obj)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-sig">obj: Object3D → CSG.Brush</div>
+  <div class="fn-desc">Menggabungkan semua geometri dari object menjadi satu BufferGeometry, lalu membungkusnya sebagai <code>Brush</code> yang siap dioperasikan oleh three-bvh-csg.</div>
+</div>
+
+<div class="fn" id="fn-csgapply">
+  <div class="fn-head"><span class="fn-name">csgApply(aBrush, bBrush, op)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-sig">(Brush, Brush, CSG.SUBTRACTION|INTERSECTION|ADDITION) → Brush</div>
+  <div class="fn-desc">Menjalankan operasi CSG (Subtract/Intersect/Add) menggunakan evaluator three-bvh-csg.</div>
+</div>
+
+</main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

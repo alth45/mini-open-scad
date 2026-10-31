@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Viewer 3D — Mini OpenSCAD Docs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+<div class="brand"><h1>Mini OpenSCAD</h1><p>Dokumentasi Kode</p></div>
+<nav class="nav">
+<a href="index.html">← Overview</a>
+<div class="nav-group-title">Viewer 3D</div>
+<a href="viewer.html#init">Inisialisasi &amp; Kamera</a>
+<a href="viewer.html#lighting">Lighting &amp; Theme</a>
+<a href="viewer.html#model">Manajemen Model</a>
+<a href="viewer.html#interaction">Section &amp; Measure</a>
+<a href="viewer.html#overlays">Overlays (Dimension/Wireframe)</a>
+<a href="viewer.html#capture">Capture (PNG/GIF)</a>
+</nav>
+</aside>
+<main class="content">
+<h1 class="page-title" id="viewer">Viewer 3D</h1>
+<p class="page-sub">Mengelola render scene, pencahayaan PBR, interaksi kamera, dan fitur CAD interaktif.</p>
+
+<div class="callout info">
+  <b>Class `Viewer`:</b> Seluruh logika rendering dibungkus dalam satu class ini. Modul lain (seperti `app/viewer-tools.js`) hanya berkomunikasi dengan class ini melalui *public methods* yang sudah disediakan.
+</div>
+
+<h2 id="init">1. Inisialisasi &amp; Kamera</h2>
+<p>Class <code>Viewer</code> dibuat sekali di `main.js` saat aplikasi dimuat.</p>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">new Viewer(container)</span><span class="fn-kind kind-class">constructor</span></div>
+  <div class="fn-sig">(container: HTMLElement)</div>
+  <div class="fn-desc">
+    Menginisialisasi:
+    <ul>
+      <li><b>WebGLRenderer</b>: Dengan <i>Antialias</i>, Tone Mapping <code>ACESFilmic</code>, dan <i>Local Clipping</i> aktif.</li>
+      <li><b>Kamera</b>: PerspectiveCamera (FOV 45) dengan sumbu Z sebagai <i>Up</i> (standar CAD).</li>
+      <li><b>OrbitControls</b>: Damping aktif untuk pergerakan kamera yang halus.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="fn" id="fn-setview">
+  <div class="fn-head"><span class="fn-name">setView(preset)</span><span class="fn-kind kind-method">method</span></div>
+  <div class="fn-sig">(preset: 'iso'|'front'|'right'|'top'|'back'|'left'|'bottom')</div>
+  <div class="fn-desc">Mengubah posisi kamera ke sudut pandang tertentu. Menyesuaikan <code>camera.up</code> agar tidak terjadi <i>gimbal lock</i> (misal pada Top/Bottom view).</div>
+  <div class="fn-links"><div class="fn-links-title">Dipanggil oleh:</div><div class="chips"><span class="chip">app/viewer-tools.js (View Presets)</span></div></div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">fitToObject(object)</span><span class="fn-kind kind-method">method</span></div>
+  <div class="fn-desc">Menghitung Bounding Box dari objek, lalu memundurkan/maju kan kamera agar seluruh objek pas di layar (auto-framing).</div>
+</div>
+
+<h2 id="lighting">2. Lighting &amp; Theme</h2>
+<p>Fitur "Studio Look" yang membuat hasil render terlihat profesional.</p>
+
+<div class="fn" id="fn-setlightingpreset">
+  <div class="fn-head"><span class="fn-name">setLightingPreset(preset)</span><span class="fn-kind kind-method">method</span></div>
+  <div class="fn-sig">(preset: 'default'|'studio'|'dramatic')</div>
+  <div class="fn-desc">
+    <ul>
+      <li><b>Default</b>: Cepat, tanpa bayangan, menggunakan Hemisphere &amp; Directional light.</li>
+      <li><b>Studio</b>: Menggunakan <code>RoomEnvironment</code> (PMREM) untuk pantulan PBR realistis, plus <i>Soft Shadows</i> di lantai.</li>
+      <li><b>Dramatic</b>: Kontras tinggi dengan aksen cahaya biru.</li>
+    </ul>
+  </div>
+  <div class="fn-links"><div class="fn-links-title">Dipanggil oleh:</div><div class="chips"><span class="chip">app/viewer-tools.js (Lighting Dropdown)</span></div></div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">setTheme(theme)</span><span class="fn-kind kind-method">method</span></div>
+  <div class="fn-desc">Mengubah warna background, grid helper, dan memicu render ulang warna wireframe jika sedang aktif.</div>
+</div>
+
+<h2 id="model">3. Manajemen Model</h2>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">setModelRoot(newRoot)</span><span class="fn-kind kind-method">method</span></div>
+  <div class="fn-desc">
+    Dipanggil setiap kali render selesai. Menghapus model lama (dan membuang memori geometrinya), lalu memasang model baru.
+    <br><b>Fitur Spesial:</b> Otomatis menyalakan <code>castShadow</code> dan <code>receiveShadow</code> ke semua mesh baru (jika mode Studio aktif), lalu membangun ulang cache untuk Measure Tool.
+  </div>
+  <div class="fn-links"><div class="fn-links-title">Dipanggil oleh:</div><div class="chips"><span class="chip">doRender (main.js)</span></div></div>
+</div>
+
+<h2 id="interaction">4. Section Plane &amp; Measure Tool</h2>
+<p>Fitur interaksi langsung pada viewport 3D.</p>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">setSection({ enabled, axis, position, flipped })</span><span class="fn-kind kind-method">method</span></div>
+  <div class="fn-desc">Menerapkan <code>THREE.Plane</code> ke material model (Local Clipping). Hanya memotong model CAD, tidak memotong Grid atau Overlay lain.</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">setMeasureMode(on)</span><span class="fn-kind kind-method">method</span></div>
+  <div class="fn-desc">Mengaktifkan <i>Raycaster</i> saat kursor bergerak/klik di atas model. Menampilkan preview bola hijau saat <i>hover</i>.</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">_snapPoint(hitPoint, mouseX, mouseY, rect)</span><span class="fn-kind kind-method">private</span></div>
+  <div class="fn-desc">
+    Mencari vertex/edge/face terdekat dalam radius 20px di layar (Screen-Space Snapping). Memastikan pengukuran CAD sangat presisi tanpa harus zoom sedetail mungkin.
+  </div>
+</div>
+
+<h2 id="overlays">5. Overlays (Dimension &amp; Wireframe)</h2>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">toggleDimensions()</span><span class="fn-kind kind-method">method</span></div>
+  <div class="fn-desc">Membuat/menghapus Bounding Box wireframe (biru) beserta garis ukur (X, Y, Z) dengan label Sprite yang selalu menghadap kamera.</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">toggleWireframe()</span><span class="fn-kind kind-method">method</span></div>
+  <div class="fn-desc">
+    Membuat overlay garis menggunakan <code>EdgesGeometry(..., 15°)</code>. Hanya menampilkan garis luar (siluet), membuang garis diagonal pada permukaan datar.
+  </div>
+</div>
+
+<h2 id="capture">6. Capture (PNG &amp; GIF)</h2>
+<p>Fitur untuk menghasilkan gambar berkualitas tinggi tanpa harus melakukan <i>Screen Recording</i>.</p>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">captureScreenshot(scale)</span><span class="fn-kind kind-method">method</span></div>
+  <div class="fn-desc">Membuat <i>Offscreen Renderer</i> sementara, merender scene, dan mengembalikan string DataURL (PNG). Resolusi bisa 2× atau 4× dari resolusi layar.</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">iterateTurntable({ frames, size, signal }, onFrame)</span><span class="fn-kind kind-method">async method</span></div>
+  <div class="fn-desc">
+    Memutar kamera 360° secara bertahap. Di setiap frame, ia memanggil <code>onFrame(ImageData)</code> yang kemudian dikirim ke encoder GIF (<code>gifenc</code>).
+  </div>
+  <div class="fn-links"><div class="fn-links-title">Dipanggil oleh:</div><div class="chips"><span class="chip">app/capture.js (Turntable GIF)</span></div></div>
+</div>
+
+</main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

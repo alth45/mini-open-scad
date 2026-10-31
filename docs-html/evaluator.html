@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Evaluator &amp; Builtins — Mini OpenSCAD Docs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+<div class="brand"><h1>Mini OpenSCAD</h1><p>Dokumentasi Kode</p></div>
+<nav class="nav">
+<a href="index.html">← Overview</a>
+<div class="nav-group-title">Evaluator</div>
+<a href="evaluator.html#core">Evaluator Core</a>
+<a href="evaluator.html#ctx">EvalContext (Timeout)</a>
+<a href="evaluator.html#builtins-3d">Builtins 3D</a>
+<a href="evaluator.html#builtins-2d">Builtins 2D</a>
+<a href="evaluator.html#transforms">Transforms</a>
+<a href="evaluator.html#boolean">Boolean (CSG)</a>
+<a href="evaluator.html#extrusions">Extrusions &amp; Offset</a>
+<a href="evaluator.html#functions">Math Functions</a>
+</nav>
+</aside>
+<main class="content">
+<h1 class="page-title" id="evaluator">Evaluator &amp; Builtins</h1>
+<p class="page-sub">Lapisan yang mengeksekusi AST menjadi objek 3D (Mesh/Group) atau objek 2D (Shape).</p>
+
+<div class="callout info">
+  <b>Pure Functions:</b> Semua fungsi di sini tidak menyentuh DOM. Output-nya murni berupa struktur data yang nantinya akan diserialisasi oleh Worker untuk dikirim ke Main Thread.
+</div>
+
+<h2 id="core">1. Evaluator Core (<code>src/evaluator/index.js</code>)</h2>
+
+<div class="fn" id="fn-evalstatements">
+  <div class="fn-head"><span class="fn-name">evalStatements(stmts, scope, ctx)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-sig">stmts: AST[], scope: Scope, ctx: EvalContext → Object3D[]</div>
+  <div class="fn-desc">Menjalankan array statement. Menangani modifier (<code>*</code>, <code>!</code>), block <code>{}</code>, serta mendeteksi infinite recursion (stack overflow).</div>
+  <div class="fn-links"><div class="fn-links-title">Dipanggil oleh:</div><div class="chips"><span class="chip">buildModel</span><span class="chip">builtins (children)</span></div></div>
+</div>
+
+<div class="fn" id="fn-evalexpr">
+  <div class="fn-head"><span class="fn-name">evalExpr(node, scope, ctx)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-sig">node: AST, scope: Scope, ctx: EvalContext → any</div>
+  <div class="fn-desc">Mengevaluasi ekspresi matematika/logika. Mendukung literal, vektor, range <code>[0:10]</code>, ternary <code>? :</code>, list comprehension <code>for</code>, akses index <code>[]</code>, dan pemanggilan fungsi.</div>
+</div>
+
+<h2 id="ctx">2. EvalContext (Timeout &amp; Warning)</h2>
+<p>Objek <code>ctx</code> yang dilempar ke setiap fungsi evaluator.</p>
+<ul>
+  <li><code>ctx.check()</code>: Dipanggil secara berkala (terutama di dalam loop) untuk mengecek batas waktu (<code>$maxTime</code>). Melempar error jika waktu habis.</li>
+  <li><code>ctx.warn(msg)</code>: Mencatat warning unik (tidak duplikat) untuk ditampilkan di console UI.</li>
+  <li><code>ctx.echo(msg)</code>: Menyimpan output untuk dirender di console.</li>
+  <li><code>ctx.trackOp(name, fn)</code>: Mencatat waktu eksekusi tiap builtin (untuk fitur Profiler).</li>
+</ul>
+
+<h2 id="builtins-3d">3. Builtins 3D (<code>src/evaluator/builtins.js</code>)</h2>
+<p>Semua modul di bawah ini mengembalikan array berisi <code>THREE.Mesh</code> atau <code>THREE.Group</code>.</p>
+
+<div class="fn" id="fn-cube">
+  <div class="fn-head"><span class="fn-name">cube(a, node, scope, ctx)</span><span class="fn-kind kind-builtin">builtin</span></div>
+  <div class="fn-sig">size: number|[x,y,z], center: boolean</div>
+  <div class="fn-desc">Membuat BoxGeometry. Jika <code>center=false</code> (default), objek digeser agar sudut bottom-left bertemu di origin (0,0,0).</div>
+</div>
+
+<div class="fn" id="fn-sphere">
+  <div class="fn-head"><span class="fn-name">sphere(a, node, scope, ctx)</span><span class="fn-kind kind-builtin">builtin</span></div>
+  <div class="fn-sig">r: number, d: number, $fn: number</div>
+  <div class="fn-desc">Membuat SphereGeometry. Resolusi segmen dihitung otomatis menggunakan fungsi helper <code>getFnFor</code>.</div>
+</div>
+
+<div class="fn" id="fn-cylinder">
+  <div class="fn-head"><span class="fn-name">cylinder(a, node, scope, ctx)</span><span class="fn-kind kind-builtin">builtin</span></div>
+  <div class="fn-sig">h: number, r1: number, r2: number, center: boolean</div>
+  <div class="fn-desc">Membuat CylinderGeometry (Z-up). Secara default berdiri di atas origin (z=0).</div>
+</div>
+
+<h2 id="builtins-2d">4. Builtins 2D</h2>
+<p>Modul ini tidak mengembalikan Mesh, melainkan objek khusus <code>{ __shape2d: true, shapes: THREE.Shape[] }</code>.</p>
+
+<div class="fn" id="fn-polygon">
+  <div class="fn-head"><span class="fn-name">polygon(a, node, scope, ctx)</span><span class="fn-kind kind-builtin">builtin</span></div>
+  <div class="fn-sig">points: [x,y][]</div>
+  <div class="fn-desc">Membuat Shape dari kumpulan titik. <b>Fitur Baru:</b> Fungsi ini mendeteksi jika garis saling menyilang (self-intersecting) dan memunculkan <code>ctx.warn()</code> agar user waspada.</div>
+</div>
+
+<div class="fn" id="fn-text">
+  <div class="fn-head"><span class="fn-name">text(a, node, scope, ctx)</span><span class="fn-kind kind-builtin">builtin</span></div>
+  <div class="fn-sig">text: string, size: number, font: string, halign, valign</div>
+  <div class="fn-desc">Menghasilkan text 2D. Mendukung font Latin (helvetiker) dan deteksi otomatis CJK/Jepang (noto-jp) yang dimuat via opentype.js.</div>
+</div>
+
+<h2 id="transforms">5. Transforms</h2>
+<p>Fungsi yang mengubah posisi/rotasi/ukuran child-nya. Jika child-nya 2D, transformasi diaplikasikan ke titik-titik Vector2.</p>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">translate / rotate / scale / mirror / multmatrix</span><span class="fn-kind kind-builtin">builtins</span></div>
+  <div class="fn-desc">Menggunakan <code>applyMatrixToChildren()</code>. Membuat matriks <code>THREE.Matrix4</code> baru, lalu menerapkannya ke Group atau Shape 2D.</div>
+</div>
+
+<h2 id="boolean">6. Boolean (CSG) — Manifold Integration</h2>
+<p>Ini adalah operasi paling berat. <b>Penting:</b> Jika objek adalah 2D (Shape), engine akan mengonversinya ke 3D setipis 0.1mm, memprosesnya dengan Manifold, lalu mengekstrak garis luarnya kembali menjadi 2D.</p>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">union / difference / intersection</span><span class="fn-kind kind-builtin">builtins</span></div>
+  <div class="fn-desc">
+    <ul>
+      <li><b>Manifold Ready:</b> Menggunakan <code>objToManifold()</code> → <code>result.add() / .subtract() / .intersect()</code> → <code>manifoldMeshToGeo()</code>.</li>
+      <li><b>Color Preserve:</b> Mengambil material dari objek pertama (<code>kids[0]</code>) dan menerapkannya ke hasil akhir.</li>
+      <li><b>Fallback:</b> Jika WASM gagal, menggunakan <code>three-bvh-csg</code> (hasil mungkin tidak watertight).</li>
+    </ul>
+  </div>
+</div>
+
+<div class="fn" id="fn-hull">
+  <div class="fn-head"><span class="fn-name">hull(a, node, scope, ctx)</span><span class="fn-kind kind-builtin">builtin</span></div>
+  <div class="fn-desc">Jika Manifold aktif, menggunakan <code>wasm.Manifold.hull()</code> (presisi tinggi). Fallback ke <code>ConvexGeometry</code> Three.js.</div>
+</div>
+
+<h2 id="extrusions">7. Extrusions &amp; Offset</h2>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">linear_extrude / rotate_extrude</span><span class="fn-kind kind-builtin">builtins</span></div>
+  <div class="fn-desc">Mengubah 2D <code>THREE.Shape</code> menjadi 3D <code>ExtrudeGeometry</code> atau <code>LatheGeometry</code>. Resolusi kurva diatur otomatis berdasarkan <code>$fn</code>.</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">offset(a, node, scope, ctx)</span><span class="fn-kind kind-builtin">builtin</span></div>
+  <div class="fn-desc">Jika 2D, melakukan <i>polygon offsetting</i> manual. Jika 3D, menggunakan metode <i>Minkowski Sum</i> (menambahkan vertex objek ke vertex bola/kubus).</div>
+</div>
+
+<h2 id="functions">8. Math Functions (<code>src/evaluator/functions.js</code>)</h2>
+<p>Fungsi murni matematika untuk ekspresi OpenSCAD (contoh: <code>sin(30)</code>, <code>min(1,2)</code>).</p>
+<ul>
+  <li><code>sin/cos/tan/asin/acos/atan/atan2</code> — Sudut dalam <b>derajat</b> (bukan radian).</li>
+  <li><code>abs/sign/sqrt/pow/exp/ln/log</code> — Fungsi matematika standar.</li>
+  <li><code>floor/ceil/round</code> — Pembulatan.</li>
+  <li><code>min/max</code> — Menerima argumen terpisah atau array.</li>
+  <li><code>len/norm/concat/str</code> — Manipulasi array/string.</li>
+</ul>
+
+</main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

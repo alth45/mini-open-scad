@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>App, Storage &amp; Services — Mini OpenSCAD Docs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+<div class="brand"><h1>Mini OpenSCAD</h1><p>Dokumentasi Kode</p></div>
+<nav class="nav">
+<a href="index.html">← Overview</a>
+<div class="nav-group-title">App & Services</div>
+<a href="app-services.html#main">Core (main.js)</a>
+<a href="app-services.html#app-modules">App Modules (src/app/)</a>
+<a href="app-services.html#exporters">Exporters (3D &amp; 2D)</a>
+<a href="app-services.html#storage">Storage &amp; Backup</a>
+<a href="app-services.html#share">Share via URL</a>
+</nav>
+</aside>
+<main class="content">
+<h1 class="page-title" id="app-services">App, Storage &amp; Services</h1>
+<p class="page-sub">Logika aplikasi utama, fitur UI modular, mesin eksportir, dan persistensi data.</p>
+
+<div class="callout info">
+  <b>Arsitektur Modular:</b> <code>main.js</code> tidak lagi memuat semua kode. Fitur-fitur UI dipisah ke dalam folder <code>src/app/</code>, sehingga <code>main.js</code> hanya bertugas sebagai <i>Orchestrator</i> (menginisialisasi dan menghubungkan modul).
+</div>
+
+<h2 id="main">1. Core Orkestrator (<code>src/main.js</code>)</h2>
+
+<div class="fn" id="fn-dorender">
+  <div class="fn-head"><span class="fn-name">doRender(opts)</span><span class="fn-kind kind-fn">async function</span></div>
+  <div class="fn-sig">({ skipParams, skipFit, quiet, throwOnError }) → Promise&lt;void&gt;</div>
+  <div class="fn-desc">
+    Fungsi utama yang dipanggil setiap kali user menekan Render atau mengubah slider.
+    Mengambil kode dari editor, mengirimkannya ke <code>workerClient.run()</code>, lalu merender hasilnya ke Viewer.
+    Juga menangani pencatatan waktu ke Profiler dan menampilkan pesan ke Console.
+  </div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">saveNow() / scheduleSave()</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-desc">Menyimpan seluruh tab yang terbuka ke <code>localStorage</code>. <code>scheduleSave</code> menggunakan <i>debounce</i> 500ms agar tidak terlalu sering menulis ke disk.</div>
+</div>
+
+<h2 id="app-modules">2. App Modules (<code>src/app/</code>)</h2>
+<p>Kumpulan modul yang menginisialisasi fitur UI. Semuanya menerima dependensi (seperti <code>viewer</code> atau <code>editor</code>) sebagai parameter.</p>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">initShortcuts(deps)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-sig">(deps: object) → void</div>
+  <div class="fn-desc">Mendaftarkan semua event listener keyboard (Capture Phase). Menangani <code>Ctrl+Enter</code> (Render), <code>Ctrl+S</code> (Save), <code>F5/F6</code> (Preview/Render), <code>Esc</code> (Tutup modal/Cancel render), dan shortcut lainnya.</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">initViewerTools(viewer)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-desc">Menyuntikkan tombol dan panel ke viewport 3D: <b>Camera Presets</b> (ISO/FRT/TOP), <b>Fullscreen</b>, <b>Dimensions</b>, <b>Section Plane</b>, dan <b>Measure Tool</b>.</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">initCapture(deps)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-desc">Menangani fitur <b>Screenshot PNG</b>, <b>Turntable GIF</b>, dan <b>Param Animation</b> (preview live dan ekspor animasi ke GIF).</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">initExportUI(deps)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-desc">Membangun dropdown Export dan menangani pemanggilan fungsi eksportir (STL, 3MF, OBJ, DXF, SVG, dll) serta tombol Save Project (.zip).</div>
+</div>
+
+<h2 id="exporters">3. Exporters (3D &amp; 2D)</h2>
+<p>Mesin yang mengubah objek Three.js menjadi file fisik.</p>
+
+<h3>Export 3D (<code>src/export.js</code>)</h3>
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">exportSTL(modelRoot)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-desc">Ekspor mesh ke format STL (binary). Karena hasil dari Manifold sudah <i>watertight</i>, file STL dijamin bebas dari error <i>non-manifold</i>.</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">export3MF(modelRoot)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-desc">Ekspor ke format 3MF (ZIP+XML). Dilengkapi dengan <i>weld vertices</i> (<code>mergeVertices</code>) sebelum ditulis ke XML, memastikan tidak ada <i>triangle soup</i>. Mendukung metadata warna (walau PrusaSlicer memiliki keterbatasan).</div>
+</div>
+
+<h3>Export 2D (<code>src/export-2d.js</code>)</h3>
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">exportSVG(shapes2d) / exportDXF(shapes2d)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-desc">
+    Menerima array kontur 2D (hasil ekstraksi Manifold 2D dari engine), lalu menggambarnya sebagai vektor garis. Sangat cocok untuk <i>Laser Cutting</i> atau CNC.
+  </div>
+  <div class="fn-links"><div class="fn-links-title">Memanggil:</div><div class="chips"><span class="chip">state.last2dShapes (dari model.js)</span></div></div>
+</div>
+
+<h2 id="storage">4. Storage &amp; Backup</h2>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">saveTabs / loadTabs</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-desc">Menyimpan array tab (kode, parameter, nama) ke <code>localStorage</code>. Mendukung migrasi dari format v1 (single project) ke v2 (multi-tab).</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">exportProjectZip(tab)</span><span class="fn-kind kind-fn">async function</span></div>
+  <div class="fn-sig">(tab) → Promise&lt;{ name, size }&gt;</div>
+  <div class="fn-desc">Membuat file ZIP berisi <code>project.json</code> (kode + parameter) dan folder <code>files/</code> yang berisi semua file STL/SCAD yang diimpor di project tersebut. Menggunakan library <code>fflate</code>.</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">importProjectZip(arrayBuffer)</span><span class="fn-kind kind-fn">async function</span></div>
+  <div class="fn-desc">Mengekstrak ZIP, membaca <code>project.json</code>, dan me-restore semua file STL yang ada di dalamnya kembali ke IndexedDB.</div>
+</div>
+
+<h2 id="share">5. Share via URL</h2>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">encodeShareTab(tab)</span><span class="fn-kind kind-fn">async function</span></div>
+  <div class="fn-desc">Mengompresi kode dan parameter tab menjadi string Base64 URL-safe. Menggunakan <code>CompressionStream('gzip')</code> bawaan browser (dengan fallback ke JSON biasa jika browser tidak mendukung).</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">readShareFromUrl()</span><span class="fn-kind kind-fn">async function</span></div>
+  <div class="fn-desc">Membaca hash URL (<code>#s=...</code>). Jika ada, akan mendekode project dan memuatnya sebagai tab baru saat aplikasi dibuka.</div>
+</div>
+
+</main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

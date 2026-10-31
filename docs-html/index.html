@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -23,7 +22,7 @@
       <div class="nav-group-title">Bahasa</div>
       <a href="core.html">Core (Tokenizer/Parser/Scope)</a>
       <a href="evaluator.html">Evaluator &amp; Builtins</a>
-      <a href="geometry-csg.html">Geometry &amp; CSG</a>
+      <a href="geometry-csg.html">Geometry, Manifold &amp; CSG</a>
       <div class="nav-group-title">Aplikasi</div>
       <a href="worker.html">Worker &amp; Model</a>
       <a href="viewer.html">Viewer 3D</a>
@@ -49,7 +48,7 @@
     <h2>Ringkasan</h2>
     <p>
       <b>Mini OpenSCAD</b> adalah CAD parametrik berbasis browser: pengguna menulis bahasa
-      mirip OpenSCAD, kode dievaluasi menjadi geometri Three.js, dan hasilnya dirender
+      mirip OpenSCAD, kode dievaluasi menjadi geometri Three.js (menggunakan <b>Manifold-3D WebAssembly</b> untuk CSG yang 100% <i>watertight</i>), dan hasilnya dirender
       secara real-time. Seluruh logika inti (tokenize → parse → eval) adalah
       <i>pure function</i> tanpa ketergantungan DOM, sehingga bisa dijalankan baik di
       main thread maupun di Web Worker.
@@ -58,16 +57,16 @@
     <div class="grid-cards">
       <a class="card" href="core.html"><h3>Core Bahasa</h3><p>Tokenizer, Parser (AST), Scope, anotasi @param.</p></a>
       <a class="card" href="evaluator.html"><h3>Evaluator</h3><p>evalExpr, evalStatements, dan seluruh builtin module.</p></a>
-      <a class="card" href="geometry-csg.html"><h3>Geometry &amp; CSG</h3><p>Helper Three.js dan operasi boolean.</p></a>
+      <a class="card" href="geometry-csg.html"><h3>Geometry &amp; CSG</h3><p>Helper Three.js, Manifold Engine, dan operasi boolean.</p></a>
       <a class="card" href="worker.html"><h3>Worker &amp; Model</h3><p>Serialisasi mesh dan evaluasi di thread terpisah.</p></a>
-      <a class="card" href="viewer.html"><h3>Viewer 3D</h3><p>Scene, OrbitControls, screenshot, turntable.</p></a>
+      <a class="card" href="viewer.html"><h3>Viewer 3D</h3><p>Scene, OrbitControls, screenshot, section plane.</p></a>
       <a class="card" href="ui.html"><h3>UI Modules</h3><p>Editor, console, panel params, tabbar, dll.</p></a>
-      <a class="card" href="app-services.html"><h3>App &amp; Services</h3><p>main.js, storage, share, export, GIF, profiler.</p></a>
+      <a class="card" href="app-services.html"><h3>App &amp; Services</h3><p>main.js, app/*, storage, share, export, GIF, profiler.</p></a>
       <a class="card" href="graph.html"><h3>Peta Ketergantungan</h3><p>Graf impor tingkat modul antar file.</p></a>
     </div>
 
     <h2 id="pipeline">Render Pipeline</h2>
-    <p>Alur dari kode sumber sampai muncul di layar:</p>
+    <p>Alur dari kode sumber sampai muncul di layar (termasuk integrasi Manifold WASM):</p>
     <div class="flow"><span class="hl">doRender()</span>            <span class="badge-mini">main.js</span>
   ├─ editor.getValue()
   ├─ setStatus('rendering')
@@ -77,6 +76,7 @@
   │
   │    <span class="badge-mini">— di dalam worker (eval-worker.js) —</span>
   │    ├─ preloadOpenTypeFonts()
+  │    ├─ <span class="hl">initManifold()</span>           <span class="badge-mini">evaluator/manifold-engine.js</span>
   │    ├─ loadFiles(importNames)
   │    ├─ loadScadTree(code)
   │    ├─ <span class="hl">buildModel()</span>             <span class="badge-mini">viewer/model.js</span>
@@ -84,8 +84,9 @@
   │    │    ├─ <span class="hl">Parser.parseProgram()</span> <span class="badge-mini">core/parser.js</span>
   │    │    ├─ applyParams()      <span class="badge-mini">evaluator/params.js</span>
   │    │    ├─ <span class="hl">evalStatements()</span>   <span class="badge-mini">evaluator/index.js</span>
+  │    │    │    └─ <span class="hl">manifold union/difference</span> <span class="badge-mini">evaluator/builtins.js</span>
   │    │    └─ serializeModel()   <span class="badge-mini">viewer/model.js</span>
-  │    └─ postMessage(meshes, transferables)
+  │    └─ postMessage(meshes, shapes2d, transferables)
   │
   ├─ <span class="hl">deserializeModel()</span>        <span class="badge-mini">viewer/model.js</span>
   ├─ viewer.setModelRoot()
@@ -97,11 +98,12 @@
       <thead><tr><th>Folder</th><th>Isi</th><th>Dokumentasi</th></tr></thead>
       <tbody>
         <tr><td><code>src/core/</code></td><td>Tokenizer, parser, scope, params, ast-utils</td><td><a href="core.html">core.html</a></td></tr>
-        <tr><td><code>src/evaluator/</code></td><td>Evaluator, builtins, functions, geometry, csg, fonts</td><td><a href="evaluator.html">evaluator.html</a>, <a href="geometry-csg.html">geometry-csg.html</a></td></tr>
+        <tr><td><code>src/evaluator/</code></td><td>Evaluator, builtins, functions, geometry, manifold-engine, mesh-utils, csg, fonts</td><td><a href="evaluator.html">evaluator.html</a>, <a href="geometry-csg.html">geometry-csg.html</a></td></tr>
         <tr><td><code>src/viewer/</code></td><td>buildModel, serialize/deserialize, Viewer scene</td><td><a href="viewer.html">viewer.html</a></td></tr>
         <tr><td><code>src/worker/</code></td><td>eval-worker, worker-client</td><td><a href="worker.html">worker.html</a></td></tr>
+        <tr><td><code>src/app/</code></td><td>Shortcuts, Viewer Tools, Capture, Export UI</td><td><a href="app-services.html">app-services.html</a></td></tr>
         <tr><td><code>src/ui/</code></td><td>editor, console, status, params-panel, dst</td><td><a href="ui.html">ui.html</a></td></tr>
-        <tr><td><code>src/*.js</code></td><td>main, config, state, storage, tabs, share, export, gif, profiler</td><td><a href="app-services.html">app-services.html</a></td></tr>
+        <tr><td><code>src/*.js</code></td><td>main, config, state, storage, tabs, share, export, export-2d, project-backup, gif, profiler</td><td><a href="app-services.html">app-services.html</a></td></tr>
       </tbody>
     </table>
 
@@ -128,10 +130,11 @@
     <table>
       <thead><tr><th>Bentuk</th><th>Struktur</th><th>Dipakai oleh</th></tr></thead>
       <tbody>
-        <tr><td>3D mesh</td><td><code>THREE.Mesh</code> / <code>THREE.Group</code></td><td>builtins 3D</td></tr>
+        <tr><td>3D mesh (Manifold)</td><td><code>THREE.BufferGeometry</code> dari hasil <code>manifoldMeshToGeo()</code></td><td>builtins 3D</td></tr>
         <tr><td>2D shape</td><td><code>{ __shape2d:true, shapes: THREE.Shape[] }</code></td><td><a href="geometry-csg.html#fn-is2d">is2D()</a>, builtins 2D</td></tr>
         <tr><td>Range runtime</td><td><code>{ __range:true, start, end, step }</code></td><td><a href="evaluator.html#fn-evalexpr">evalExpr</a> case Range</td></tr>
         <tr><td>Mesh transfer</td><td><code>{ positions, normals, color }</code></td><td><a href="worker.html#fn-serializemodel">serializeModel</a></td></tr>
+        <tr><td>2D transfer</td><td><code>shapes2d: { outer: Vector2[], holes: Vector2[][] }[]</code></td><td><a href="worker.html#fn-serializemodel">serializeModel</a></td></tr>
       </tbody>
     </table>
 
@@ -146,4 +149,3 @@
 <script src="app.js"></script>
 </body>
 </html>
-

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Worker &amp; Model — Mini OpenSCAD Docs</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+<aside class="sidebar">
+<div class="brand"><h1>Mini OpenSCAD</h1><p>Dokumentasi Kode</p></div>
+<nav class="nav">
+<a href="index.html">← Overview</a>
+<div class="nav-group-title">Worker & Model</div>
+<a href="worker.html#client">Worker Client (Main)</a>
+<a href="worker.html#worker">Eval Worker (Background)</a>
+<a href="worker.html#model">Build & Serialize</a>
+</nav>
+</aside>
+<main class="content">
+<h1 class="page-title" id="worker">Worker &amp; Model</h1>
+<p class="page-sub">Bagaimana kode dievaluasi di background thread dan dikirim kembali ke UI secara efisien.</p>
+
+<div class="callout info">
+  <b>Zero-Copy Transfer:</b> Untuk mencegah UI <i>freeze</i> saat merender model berat, evaluasi dan pembentukan mesh dilakukan di Web Worker. Data dikirim kembali menggunakan <code>Transferable Objects</code> (Float32Array buffer) agar proses pemindahan data berlangsung instan tanpa menduplikasi memori.
+</div>
+
+<h2 id="client">1. Worker Client (<code>src/worker/worker-client.js</code>)</h2>
+<p>Berjalan di Main Thread (UI). Bertugas membuat Worker baru untuk setiap render, mengirim perintah, dan menangani timeout.</p>
+
+<div class="fn" id="fn-createworkerclient">
+  <div class="fn-head"><span class="fn-name">createWorkerClient()</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-sig">() → { run, cancel, dispose }</div>
+  <div class="fn-desc">Membuat instance wrapper. Menggunakan <code>new Worker(new URL('./eval-worker.js', import.meta.url), { type: 'module' })</code> agar kompatibel dengan Vite bundling.</div>
+</div>
+
+<div class="fn" id="fn-workerclient-run">
+  <div class="fn-head"><span class="fn-name">run(code, paramValues, previewMode)</span><span class="fn-kind kind-method">method</span></div>
+  <div class="fn-sig">(string, object, boolean) → Promise&lt;WorkerResponse&gt;</div>
+  <div class="fn-desc">
+    Mengirim job ke Worker. Fitur penting:
+    <ul>
+      <li><b>Cancel Pending:</b> Jika dipanggil lagi saat render sebelumnya belum selesai, render lama akan di-<i>terminate</i> dan dilempar error <code>CancelledError</code>.</li>
+      <li><b>Watchdog:</b> Memasang timer timeout (65 detik). Jika Worker tidak membalas, proses dihentikan paksa.</li>
+      <li><b>Ready Handshake:</b> Menunggu sinyal <code>{ type: 'ready' }</code> dari Worker sebelum mengirim data (mencegah race condition).</li>
+    </ul>
+  </div>
+  <div class="fn-links"><div class="fn-links-title">Dipanggil oleh:</div><div class="chips"><span class="chip">doRender (main.js)</span></div></div>
+</div>
+
+<h2 id="worker">2. Eval Worker (<code>src/worker/eval-worker.js</code>)</h2>
+<p>Berjalan di Background Thread. Tidak memiliki akses ke DOM.</p>
+
+<div class="fn" id="fn-onmessage">
+  <div class="fn-head"><span class="fn-name">self.onmessage</span><span class="fn-kind kind-event">event handler</span></div>
+  <div class="fn-sig">(e: MessageEvent) → void</div>
+  <div class="fn-desc">
+    Menerima instruksi dari Main Thread. Alur kerjanya:
+    <ol>
+      <li><code>await preloadOpenTypeFonts()</code>: Memuat font Jepang (CJK).</li>
+      <li><code>await initManifold()</code>: Memuat engine WebAssembly Manifold-3D.</li>
+      <li><code>await loadFiles(importNames)</code>: Mengambil file STL dari IndexedDB.</li>
+      <li>Memanggil <code>buildModel()</code> dari `viewer/model.js`.</li>
+      <li><code>postMessage(response, transferables)</code>: Mengembalikan hasil.</li>
+    </ol>
+  </div>
+</div>
+
+<h2 id="model">3. Build &amp; Serialize (<code>src/viewer/model.js</code>)</h2>
+<p>Jembatan antara evaluator (yang menghasilkan objek Three.js) dengan Web Worker (yang harus mengirim data murni).</p>
+
+<div class="fn" id="fn-buildmodel">
+  <div class="fn-head"><span class="fn-name">buildModel(code, paramValues, files, previewMode, scadCache)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-sig">(...) → { root, meshes, shapes2d, warnings, ... }</div>
+  <div class="fn-desc">
+    Orkestrator utama di dalam Worker. Menjalankan:
+    <code>tokenize → parseProgram → applyParams → evalStatements</code>.
+    Setelah itu, memisahkan hasil 3D (<code>root</code>) dan 2D (<code>shapes2d</code>), lalu memanggil <code>serializeModel()</code>.
+  </div>
+  <div class="fn-links"><div class="fn-links-title">Memanggil:</div><div class="chips"><span class="chip">evalStatements</span><span class="chip">serializeModel</span></div></div>
+</div>
+
+<div class="fn" id="fn-serializemodel">
+  <div class="fn-head"><span class="fn-name">serializeModel(root)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-sig">root: THREE.Group → Array&lt;{ positions, normals, color }&gt;</div>
+  <div class="fn-desc">
+    Flatten objek 3D menjadi array data mentah.
+    <ul>
+      <li>Menerapkan <code>applyMatrix4(matrixWorld)</code> agar posisi absolute tersimpan.</li>
+      <li>Mengubah geometri ber-index menjadi <i>Non-Indexed</i> (Triangle Soup).</li>
+      <li>Mendeteksi <i>mirror</i> (determinant < 0) dan membalik urutan vertex (winding order) jika perlu.</li>
+      <li>Menyimpan warna material per-mesh.</li>
+    </ul>
+  </div>
+  <div class="fn-links"><div class="fn-links-title">Dipanggil oleh:</div><div class="chips"><span class="chip">buildModel</span></div></div>
+</div>
+
+<div class="fn" id="fn-deserializemodel">
+  <div class="fn-head"><span class="fn-name">deserializeModel(meshes)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-sig">meshes: Array → THREE.Group</div>
+  <div class="fn-desc">
+    Kebalikan dari <code>serializeModel</code>. Berjalan di Main Thread setelah data diterima dari Worker.
+    Membuat ulang <code>BufferGeometry</code>, menghitung ulang normal jika tidak ada, dan mengaplikasikan <code>MeshStandardMaterial</code> dengan warna yang sesuai.
+  </div>
+  <div class="fn-links"><div class="fn-links-title">Dipanggil oleh:</div><div class="chips"><span class="chip">doRender (main.js)</span></div></div>
+</div>
+
+<div class="callout warn">
+  <b>Perhatian:</b> Jangan pernah mengirim objek <code>THREE.Mesh</code> secara langsung melalui <code>postMessage</code>! Objek tersebut tidak bisa di-<i>clone</i> oleh browser, dan referensi memori (WebGL context) tidak bisa dibagikan antar thread. Selalu gunakan <code>serializeModel()</code>.
+</div>
+
+</main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
