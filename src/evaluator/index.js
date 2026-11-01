@@ -159,22 +159,22 @@ export function evalExpr(node, scope, ctx) {
         const cc = findChildrenContext(scope);
         return cc ? cc.children.length : 0;
       }
+
       const v = scope.get(node.name);
       if (v === undefined) {
+        // KUNCI PERBAIKAN: Jangan throw error, tapi beri warning dan return null (undef)
         const candidates = scope.collectVarNames();
         candidates.add("PI");
         candidates.add("$fn");
         candidates.add("$children");
         const sug = suggestName(node.name, candidates);
-        throw new SCADError(
-          `Variabel tidak dikenal: '${node.name}'`,
-          node.line,
-          node.col,
-          sug ? `Mungkin maksud Anda: '${sug}'` : null,
-        );
-      }
-      return v;
 
+        let msg = `Variabel '${node.name}' tidak dideklarasikan (dianggap 'undef').`;
+        if (sug) msg += ` Mungkin maksud Anda: '${sug}'?`;
+        ctx.warn(msg);
+
+        return null; // null direpresentasikan sebagai 'undef' di engine kita
+      }
       return v;
     }
 
@@ -206,17 +206,54 @@ export function evalExpr(node, scope, ctx) {
     case "Index": {
       const obj = evalExpr(node.object, scope, ctx);
       const idx = numArg(evalExpr(node.index, scope, ctx), 0);
+      const i = Math.floor(idx);
+
+      // 1. Akses Array / Vector
       if (Array.isArray(obj)) {
-        const i = Math.floor(idx);
-        if (i < 0 || i >= obj.length)
-          throw new SCADError("Index di luar batas", node.line);
+        if (i < 0 || i >= obj.length) {
+          ctx.warn(
+            `Index [${i}] di luar batas array (panjang: ${obj.length}) — mengembalikan undef.`,
+          );
+          return null;
+        }
         return obj[i];
       }
-      throw new SCADError("Index hanya untuk vector", node.line);
+
+      // 2. KUNCI PERBAIKAN: Akses String
+      if (typeof obj === "string") {
+        if (i < 0 || i >= obj.length) {
+          ctx.warn(
+            `Index [${i}] di luar batas string (panjang: ${obj.length}) — mengembalikan undef.`,
+          );
+          return null;
+        }
+        return obj[i]; // Di JavaScript, string[index] otomatis mengembalikan huruf/karakter
+      }
+
+      throw new SCADError(
+        "Index [] hanya bisa digunakan untuk Vector atau String",
+        node.line,
+      );
     }
 
     case "ListComp":
       return evalComprehension(node, scope, ctx);
+    case "Call":
+      return evalCall(node, scope, ctx);
+    case "AnonymousFunction": {
+      const fnNode = node;
+      const closureScope = scope; // Simpan scope saat ini (closure)
+      return {
+        __isFunction: true,
+        name: "anonymous",
+        call(args, ctx) {
+          const fnScope = new Scope(closureScope);
+          bindParams(fnNode.params, args, fnScope, closureScope, ctx);
+          return evalExpr(fnNode.expr, fnScope, ctx);
+        },
+      };
+    }
+
     case "Call":
       return evalCall(node, scope, ctx);
 
@@ -397,16 +434,27 @@ function applyNum(op, l, r, node) {
 function evalCall(node, scope, ctx) {
   const args = node.args;
 
+  // 1. Evaluasi argumen terlebih dahulu
+  const pos = args.pos.map((n) => evalExpr(n, scope, ctx));
+  const named = Object.create(null);
+  for (const k in args.named) named[k] = evalExpr(args.named[k], scope, ctx);
+  const callArgs = { pos, named };
+
+  // 2. Cek apakah ini user-defined function (named)
   const userFn = scope.getFunc(node.name);
   if (userFn) {
-    const pos = args.pos.map((n) => evalExpr(n, scope, ctx));
-    const named = Object.create(null);
-    for (const k in args.named) named[k] = evalExpr(args.named[k], scope, ctx);
     const fnScope = new Scope(scope);
-    bindParams(userFn.params, { pos, named }, fnScope, scope, ctx);
+    bindParams(userFn.params, callArgs, fnScope, scope, ctx);
     return evalExpr(userFn.expr, fnScope, ctx);
   }
 
+  // 3. Cek apakah ini Anonymous Function yang disimpan di variabel
+  const varFn = scope.get(node.name);
+  if (varFn && varFn.__isFunction) {
+    return varFn.call(callArgs, ctx);
+  }
+
+  // 4. Cek builtin function
   const fn = BUILTIN_FUNCTIONS[node.name];
   if (!fn) {
     const candidates = new Set(Object.keys(BUILTIN_FUNCTIONS));
@@ -419,7 +467,9 @@ function evalCall(node, scope, ctx) {
       sug ? `Mungkin maksud Anda: '${sug}'` : null,
     );
   }
-  return fn(...args.pos.map((n) => evalExpr(n, scope, ctx)));
+
+  // Builtin hanya menerima argumen posisional
+  return fn(...pos);
 }
 
 function bindParams(params, args, targetScope, callerScope, ctx) {
@@ -457,6 +507,28 @@ function evalArgsNode(argsNode, scope, ctx) {
   return { pos, named };
 }
 
+/* ---------- Helper Modifier ---------- */
+function applyModifier(objs, modifier) {
+  if (!modifier) return objs;
+  const color = modifier === "#" ? 0xff00ff : 0xaaaaaa; // Pink untuk #, Abu untuk %
+  const opacity = modifier === "#" ? 0.6 : 0.2;
+
+  for (const obj of objs) {
+    if (!obj || !obj.isObject3D) continue;
+    obj.traverse((o) => {
+      if (o.isMesh && o.material) {
+        o.material = o.material.clone();
+        o.material.color.setHex(color);
+        o.material.transparent = true;
+        o.material.opacity = opacity;
+        o.material.depthWrite = false;
+        if (modifier === "%") o.userData.isBackground = true;
+      }
+    });
+  }
+  return objs;
+}
+
 /* ---------- Statements ---------- */
 
 export function evalStatements(stmts, scope, ctx) {
@@ -470,6 +542,9 @@ export function evalStatements(stmts, scope, ctx) {
       if (st.modifier === "!") {
         out = res.slice();
         continue;
+      }
+      if (st.modifier === "#" || st.modifier === "%") {
+        applyModifier(res, st.modifier);
       }
       out = out.concat(res);
     }
@@ -565,6 +640,41 @@ export function evalStatement(st, scope, ctx) {
       recurse(0, scope);
 
       return out;
+    }
+
+    case "IntersectionFor": {
+      const lists = st.iterators.map((it) => ({
+        varName: it.varName,
+        values: iterToValues(evalExpr(it.iter, scope, ctx), st.line),
+      }));
+
+      const total = lists.reduce((a, b) => a * b.values.length, 1);
+      if (total > CONFIG.maxLoopIterations) {
+        throw new SCADError(
+          `Loop terlalu besar (> ${CONFIG.maxLoopIterations} kombinasi)`,
+          st.line,
+        );
+      }
+
+      const out = [];
+
+      function recurse(idx, inner) {
+        ctx.check();
+        if (idx === lists.length) {
+          out.push(...evalStatements(st.body, inner, ctx));
+          return;
+        }
+        const { varName, values } = lists[idx];
+        for (const v of values) {
+          const child = new Scope(inner);
+          child.set(varName, v);
+          recurse(idx + 1, child);
+        }
+      }
+      recurse(0, scope);
+
+      // Panggil fungsi dari BUILTINS
+      return BUILTINS.intersectObjects(out, st, scope, ctx);
     }
 
     case "Include": {

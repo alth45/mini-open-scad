@@ -99,7 +99,10 @@ export class Parser {
   parseStatement() {
     const startTok = this.cur;
     let modifier = null;
-    while (this.cur.type === "op" && ["*", "!", "#"].includes(this.cur.value)) {
+    while (
+      this.cur.type === "op" &&
+      ["*", "!", "#", "%"].includes(this.cur.value)
+    ) {
       modifier = this.cur.value;
       this.advance();
     }
@@ -175,6 +178,20 @@ export class Parser {
         this.expect(")", "Diharapkan ')'");
         const body = this.parseBody();
         return { type: "For", iterators, body, modifier, line: startTok.line };
+      }
+      if (kw === "intersection_for") {
+        this.advance();
+        this.expect("(", "Diharapkan '('");
+        const iterators = this.parseForIterators();
+        this.expect(")", "Diharapkan ')'");
+        const body = this.parseBody();
+        return {
+          type: "IntersectionFor",
+          iterators,
+          body,
+          modifier,
+          line: startTok.line,
+        };
       }
       /* let(...) — statement context */
       if (kw === "let" && this.isOp("(", 1)) {
@@ -347,6 +364,15 @@ export class Parser {
       /* let(...) — expression binding */
       if (t.value === "let" && this.isOp("(", 1)) {
         return this.parseLet();
+      }
+
+      if (t.value === "function" && this.isOp("(", 1)) {
+        this.advance(); // 'function'
+        this.expect("(", "Diharapkan '('");
+        const params = this.parseParams();
+        this.expect(")", "Diharapkan ')'");
+        const expr = this.parseExpression();
+        return { type: "AnonymousFunction", params, expr, line: t.line };
       }
 
       this.advance();

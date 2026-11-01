@@ -1,34 +1,210 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
-<head>
-<meta charset="utf-8">
-<title>Core — Mini OpenSCAD Docs</title>
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
-<div class="layout">
-<aside class="sidebar">
-<div class="brand"><h1>Mini OpenSCAD</h1><p>Dokumentasi Kode</p></div>
-<nav class="nav">
-<a href="index.html">← Overview</a>
-<a href="core.html#tokenizer">Tokenizer</a>
-<a href="core.html#parser">Parser</a>
-<a href="core.html#scope">Scope</a>
-<a href="core.html#params">Params</a>
-<a href="core.html#astutils">AST Utils</a>
-</nav>
-</aside>
-<main class="content">
-<h1 class="page-title" id="tokenizer">Core — Tokenizer, Parser &amp; Scope</h1>
-<p class="page-sub">Lapisan parsing bahasa. Semua fungsi di sini murni (tanpa DOM).</p>
-<h2>Alur</h2>
-<div class="flow">source (string)
-  └─ <span class="hl">tokenize()</span>          → tokens[]
-       └─ <span class="hl">Parser.parseProgram()</span> → AST
-            ├─ <span class="hl">applyParams()</span>   → AST dengan nilai param
-            └─ <span class="hl">evalStatements()</span> → geometry  <span class="badge-mini">(evaluator.html)</span></div>
-</main>
-</div>
-<script src="app.js"></script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <title>Core — Mini OpenSCAD Docs</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">
+          <h1>Mini OpenSCAD</h1>
+          <p>Dokumentasi Kode</p>
+        </div>
+        <nav class="nav">
+          <a href="index.html">← Overview</a>
+          <a href="core.html#tokenizer">Tokenizer</a>
+          <a href="core.html#parser">Parser</a>
+          <a href="core.html#ast">Struktur AST</a>
+          <a href="core.html#scope">Scope & Params</a>
+        </nav>
+      </aside>
+      <main class="content">
+        <h1 class="page-title" id="tokenizer">
+          Core — Tokenizer, Parser &amp; Scope
+        </h1>
+        <p class="page-sub">
+          Lapisan parsing bahasa. Semua fungsi di sini murni (tanpa DOM).
+        </p>
+
+        <h2>Alur Evaluasi</h2>
+        <div class="flow">
+          source (string) └─ <span class="hl">tokenize()</span> → tokens[] └─
+          <span class="hl">Parser.parseProgram()</span> → AST ├─
+          <span class="hl">applyParams()</span> → AST dengan nilai param └─
+          <span class="hl">evalStatements()</span> → geometry
+          <span class="badge-mini">(evaluator.html)</span>
+        </div>
+
+        <h2 id="parser">1. Tokenizer &amp; Parser</h2>
+
+        <div class="fn" id="fn-tokenize">
+          <div class="fn-head">
+            <span class="fn-name">tokenize(src)</span
+            ><span class="fn-kind kind-fn">function</span>
+          </div>
+          <div class="fn-sig">src: string → Token[]</div>
+          <div class="fn-desc">
+            Mengubah string kode menjadi deretan token. Mendukung:
+            <ul>
+              <li>
+                Angka (termasuk notasi ilmiah <code>1e-3</code>), String,
+                Identifier (termasuk <code>$vars</code>).
+              </li>
+              <li>Komentar (<code>//</code> dan <code>/* */</code>).</li>
+              <li>
+                Modifier: <code>*</code> (disable), <code>!</code> (show only),
+                <code>#</code> (highlight), <code>%</code> (background).
+              </li>
+              <li>Raw string untuk <code>include &lt;file.scad&gt;</code>.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="fn" id="fn-parser-parseprogram">
+          <div class="fn-head">
+            <span class="fn-name">Parser.parseProgram()</span
+            ><span class="fn-kind kind-class">class method</span>
+          </div>
+          <div class="fn-sig">() → { type: 'Program', body: AST[] }</div>
+          <div class="fn-desc">
+            Fungsi utama yang memanggil <code>parseStatement()</code> secara
+            berulang hingga akhir file (EOF).
+          </div>
+        </div>
+
+        <div class="fn" id="fn-parser-parsestatement">
+          <div class="fn-head">
+            <span class="fn-name">parseStatement()</span
+            ><span class="fn-kind kind-method">method</span>
+          </div>
+          <div class="fn-desc">
+            Mendeteksi jenis statement berdasarkan token pembuka:
+            <ul>
+              <li><code>module</code>, <code>function</code></li>
+              <li>
+                <code>if</code>, <code>for</code>,
+                <b><code>intersection_for</code></b> (baru)
+              </li>
+              <li><code>include</code>, <code>use</code></li>
+              <li>Assignment (<code>x = 10;</code>)</li>
+              <li>Module call (<code>cube(10);</code>)</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="fn" id="fn-parser-parsecondary">
+          <div class="fn-head">
+            <span class="fn-name">parsePrimary()</span
+            ><span class="fn-kind kind-method">method</span>
+          </div>
+          <div class="fn-desc">
+            Menangani ekspresi dasar. <b>Fitur Baru:</b> Mendukung pembacaan
+            <b>Anonymous Function</b> (<code>function(x) x*2</code>) secara
+            langsung sebagai ekspresi.
+          </div>
+        </div>
+
+        <div class="fn" id="fn-parser-parsecompbody">
+          <div class="fn-head">
+            <span class="fn-name">parseComprehensionBody()</span
+            ><span class="fn-kind kind-method">method</span>
+          </div>
+          <div class="fn-desc">
+            Menangani isi dari List Comprehension <code>[ ... ]</code>.
+            <b>Fitur Baru:</b> Mendukung kata kunci
+            <b><code>each</code></b> untuk meratakan (flatten) array hasil loop.
+          </div>
+        </div>
+
+        <h2 id="ast">2. Struktur AST (Abstract Syntax Tree)</h2>
+        <p>Node yang dihasilkan oleh Parser dan dikonsumsi oleh Evaluator.</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Node Type</th>
+              <th>Bidang Penting</th>
+              <th>Contoh Kode</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>ModuleCall</code></td>
+              <td><code>name, args, children</code></td>
+              <td><code>cube(10);</code></td>
+            </tr>
+            <tr>
+              <td><code>For</code></td>
+              <td><code>iterators, body</code></td>
+              <td><code>for(i=[0:5]) ...</code></td>
+            </tr>
+            <tr>
+              <td>
+                <b><code>IntersectionFor</code></b>
+              </td>
+              <td><code>iterators, body</code></td>
+              <td><code>intersection_for(i=[0:5]) ...</code></td>
+            </tr>
+            <tr>
+              <td><code>If</code></td>
+              <td><code>cond, thenBody, elseBody</code></td>
+              <td><code>if (x) ... else ...</code></td>
+            </tr>
+            <tr>
+              <td>
+                <b><code>AnonymousFunction</code></b>
+              </td>
+              <td><code>params, expr</code></td>
+              <td><code>f = function(x) x*2;</code></td>
+            </tr>
+            <tr>
+              <td><code>ListComp</code></td>
+              <td><code>kind ('for'|'if'|'expr'|'each'), ...</code></td>
+              <td><code>[for(i) each [i,i]]</code></td>
+            </tr>
+            <tr>
+              <td><code>Let</code> / <code>LetStatement</code></td>
+              <td><code>bindings, body/expr</code></td>
+              <td><code>let(a=1) ...</code></td>
+            </tr>
+            <tr>
+              <td><code>Ternary</code></td>
+              <td><code>cond, thenExpr, elseExpr</code></td>
+              <td><code>x &gt; 0 ? 1 : 0</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 id="scope">3. Scope &amp; Params</h2>
+
+        <div class="fn">
+          <div class="fn-head">
+            <span class="fn-name">class Scope(parent)</span
+            ><span class="fn-kind kind-class">class</span>
+          </div>
+          <div class="fn-desc">
+            Menyimpan variabel (Map), module, function, dan
+            <code>childrenContext</code>. Menggunakan rantai prototype
+            (<code>parent</code>) untuk mencari variabel dari scope terdalam ke
+            terluar.
+          </div>
+        </div>
+
+        <div class="fn">
+          <div class="fn-head">
+            <span class="fn-name">parseParams(code)</span
+            ><span class="fn-kind kind-fn">function</span>
+          </div>
+          <div class="fn-desc">
+            Membaca komentar <code>// @param</code> atau format OpenSCAD
+            Customizer (<code>[min:max]</code>) untuk menghasilkan array
+            definisi UI (slider, enum, bool).
+          </div>
+        </div>
+      </main>
+    </div>
+    <script src="app.js"></script>
+  </body>
 </html>
