@@ -11,6 +11,7 @@
   "dependencies": {
     "fflate": "^0.8.3",
     "gifenc": "^1.0.3",
+    "jspdf": "^4.2.1",
     "manifold-3d": "^3.5.4",
     "opentype.js": "^2.0.0",
     "three": "0.160.1",

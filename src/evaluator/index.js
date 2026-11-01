@@ -534,10 +534,29 @@ function applyModifier(objs, modifier) {
 export function evalStatements(stmts, scope, ctx) {
   let out = [];
   try {
+    // =========================================================
+    // TAHAP 1: HOISTING (Mendaftarkan module & function lebih dulu)
+    // Ini agar OpenSCAD bisa memanggil module yang dideklarasikan di bawahnya
+    // =========================================================
+    for (const st of stmts) {
+      if (st.type === "ModuleDef") {
+        scope.modules.set(st.name, st);
+      } else if (st.type === "FunctionDef") {
+        scope.funcs.set(st.name, st);
+      }
+    }
+
+    // =========================================================
+    // TAHAP 2: EKSEKUSI (Menjalankan statement)
+    // =========================================================
     for (const st of stmts) {
       ctx.check();
       const res = evalStatement(st, scope, ctx);
       if (!res || res.length === 0) continue;
+      
+      // Abaikan module/function def karena sudah didaftarkan di Tahap 1
+      if (st.type === "ModuleDef" || st.type === "FunctionDef") continue;
+
       if (st.modifier === "*") continue;
       if (st.modifier === "!") {
         out = res.slice();
