@@ -1,24 +1,24 @@
-import { listFiles, deleteFile } from '../files/file-store.js';
-import { escapeHtml } from '../utils.js';
+import { listFiles, deleteFile } from "../files/file-store.js";
+import { escapeHtml } from "../utils.js";
 
 const MAX_VISIBLE = 5;
 
 export function createHomeScreen(containerEl, callbacks) {
-    let allFiles = [];
-    let showAllFiles = false;
+  let allFiles = [];
+  let showAllFiles = false;
 
-    async function refresh() {
-        try {
-            allFiles = await listFiles();
-        } catch (err) {
-            console.error('[home] listFiles failed:', err);
-            allFiles = [];
-        }
-        render();
+  async function refresh() {
+    try {
+      allFiles = await listFiles();
+    } catch (err) {
+      console.error("[home] listFiles failed:", err);
+      allFiles = [];
     }
+    render();
+  }
 
-    function render() {
-        containerEl.innerHTML = `
+  function render() {
+    containerEl.innerHTML = `
       <div class="home-scroll">
         <div class="home-container">
           <header class="home-header">
@@ -49,22 +49,22 @@ export function createHomeScreen(containerEl, callbacks) {
               <button class="home-menu-item" data-action="load-zip">
                 <span class="home-menu-icon">📦</span>
                 <span class="home-menu-content">
-                  <span class="home-menu-label">Load Project (.zip)</span>
-                  <span class="home-menu-desc">Buka project dari file backup</span>
+                  <span class="home-menu-label">Load Project</span>
+                  <span class="home-menu-desc">Buka dari file .zip</span>
                 </span>
               </button>
               <button class="home-menu-item" data-action="files">
                 <span class="home-menu-icon">📁</span>
                 <span class="home-menu-content">
                   <span class="home-menu-label">Files Manager</span>
-                  <span class="home-menu-desc">Kelola file STL tersimpan</span>
+                  <span class="home-menu-desc">Kelola file tersimpan</span>
                 </span>
               </button>
               <button class="home-menu-item" data-action="cheat">
                 <span class="home-menu-icon">⌨</span>
                 <span class="home-menu-content">
                   <span class="home-menu-label">Cheat Sheet</span>
-                  <span class="home-menu-desc">Shortcut &amp; referensi sintaks</span>
+                  <span class="home-menu-desc">Shortcut & referensi</span>
                 </span>
               </button>
             </div>
@@ -73,18 +73,20 @@ export function createHomeScreen(containerEl, callbacks) {
           ${renderFilesSection()}
 
           <footer class="home-footer">
-            <button class="home-skip" data-action="skip">Skip → Langsung ke Editor</button>
+            <button class="home-skip" data-action="skip">
+              <i class="fa-solid fa-arrow-right"></i> Langsung ke Editor
+            </button>
           </footer>
         </div>
       </div>
     `;
 
-        attachListeners();
-    }
+    attachListeners();
+  }
 
-    function renderFilesSection() {
-        if (allFiles.length === 0) {
-            return `
+  function renderFilesSection() {
+    if (allFiles.length === 0) {
+      return `
         <section class="home-section">
           <h2 class="home-h2">📁 Imported Files</h2>
           <div class="home-empty">
@@ -94,16 +96,18 @@ export function createHomeScreen(containerEl, callbacks) {
           </div>
         </section>
       `;
-        }
+    }
 
-        const visible = showAllFiles ? allFiles : allFiles.slice(0, MAX_VISIBLE);
-        const remaining = allFiles.length - MAX_VISIBLE;
+    const visible = showAllFiles ? allFiles : allFiles.slice(0, MAX_VISIBLE);
+    const remaining = allFiles.length - MAX_VISIBLE;
 
-        return `
+    return `
       <section class="home-section">
         <h2 class="home-h2">📁 Imported Files (${allFiles.length})</h2>
         <div class="home-files-grid">
-          ${visible.map(f => `
+          ${visible
+            .map(
+              (f) => `
             <div class="home-file-card" data-file="${escapeHtml(f.name)}" title="Klik untuk insert import(&quot;${escapeHtml(f.name)}&quot;)">
               <div class="home-file-icon">📦</div>
               <div class="home-file-info">
@@ -112,70 +116,89 @@ export function createHomeScreen(containerEl, callbacks) {
               </div>
               <button class="home-file-delete" data-file-delete="${escapeHtml(f.name)}" title="Hapus file">✕</button>
             </div>
-          `).join('')}
-          ${!showAllFiles && remaining > 0 ? `
+          `,
+            )
+            .join("")}
+          ${
+            !showAllFiles && remaining > 0
+              ? `
             <button class="home-show-more" data-action="show-more">
               <span class="home-show-more-icon">⋯</span>
               <span>Show ${remaining} more</span>
             </button>
-          ` : ''}
-          ${showAllFiles && allFiles.length > MAX_VISIBLE ? `
+          `
+              : ""
+          }
+          ${
+            showAllFiles && allFiles.length > MAX_VISIBLE
+              ? `
             <button class="home-show-more" data-action="show-less">
               <span class="home-show-more-icon">▲</span>
               <span>Show less</span>
             </button>
-          ` : ''}
+          `
+              : ""
+          }
         </div>
       </section>
     `;
-    }
+  }
 
-    function attachListeners() {
-        containerEl.querySelectorAll('[data-action]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const action = btn.dataset.action;
-                if (action === 'show-more') { showAllFiles = true; render(); return; }
-                if (action === 'show-less') { showAllFiles = false; render(); return; }
-                callbacks.onAction?.(action);
-            });
-        });
+  function attachListeners() {
+    /* 1. Tombol menu utama (New, Import, Load ZIP, Files, Cheat, Skip, Show more/less) */
+    containerEl.querySelectorAll("[data-action]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const action = btn.dataset.action;
+        if (action === "show-more") {
+          showAllFiles = true;
+          render();
+          return;
+        }
+        if (action === "show-less") {
+          showAllFiles = false;
+          render();
+          return;
+        }
+        callbacks.onAction?.(action);
+      });
+    });
 
-        containerEl.querySelectorAll('[data-action]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const action = btn.dataset.action;
-                if (action === 'show-more') { showAllFiles = true; render(); return; }
-                if (action === 'show-less') { showAllFiles = false; render(); return; }
-                callbacks.onAction?.(action);
-            });
-        });
+    /* 2. Klik file card → insert import("...") */
+    containerEl.querySelectorAll(".home-file-card").forEach((card) => {
+      card.addEventListener("click", (e) => {
+        if (e.target.closest(".home-file-delete")) return;
+        callbacks.onFileInsert?.(card.dataset.file);
+      });
+    });
 
-        containerEl.querySelectorAll('.home-file-card').forEach(card => {
-            card.addEventListener('click', (e) => {
-                if (e.target.closest('.home-file-delete')) return;
-                callbacks.onFileInsert?.(card.dataset.file);
-            });
-        });
+    /* 3. Klik tombol hapus file */
+    containerEl.querySelectorAll(".home-file-delete").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const name = btn.dataset.fileDelete;
+        if (!confirm(`Hapus file '${name}'?`)) return;
+        try {
+          await deleteFile(name);
+          await refresh();
+          callbacks.onFileDeleted?.(name);
+        } catch (err) {
+          console.error("[home] delete failed:", err);
+        }
+      });
+    });
+  }
 
-        containerEl.querySelectorAll('.home-file-delete').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                const name = btn.dataset.fileDelete;
-                if (!confirm(`Hapus file '${name}'?`)) return;
-                try {
-                    await deleteFile(name);
-                    await refresh();
-                    callbacks.onFileDeleted?.(name);
-                } catch (err) {
-                    console.error('[home] delete failed:', err);
-                }
-            });
-        });
-    }
-
-    return {
-        show() { containerEl.classList.remove('hidden'); refresh(); },
-        hide() { containerEl.classList.add('hidden'); },
-        isVisible() { return !containerEl.classList.contains('hidden'); },
-        refresh
-    };
+  return {
+    show() {
+      containerEl.classList.remove("hidden");
+      refresh();
+    },
+    hide() {
+      containerEl.classList.add("hidden");
+    },
+    isVisible() {
+      return !containerEl.classList.contains("hidden");
+    },
+    refresh,
+  };
 }

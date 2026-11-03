@@ -1274,7 +1274,7 @@ export class Viewer {
     this._wireframeOn = !this._wireframeOn;
     const w = this._wireframeOn;
 
-    /* 1. Hapus semua overlay wireframe lama (jika ada) */
+    /* 1. Hapus semua overlay wireframe lama */
     const toRemove = [];
     this.modelRoot.traverse((o) => {
       if (o.userData.isWireframeOverlay) toRemove.push(o);
@@ -1285,32 +1285,57 @@ export class Viewer {
       o.material.dispose();
     }
 
-    if (!w) return false;
+    const lineColor = this._theme === "light" ? 0x333333 : 0xeeeeee;
 
-    /* 2. Buat garis overlay baru */
-    // Di theme terang, garis berwarna gelap. Di theme gelap, garis terang.
-    const lineColor = this._theme === "light" ? 0x333333 : 0xaaaaaa;
+    if (!w) {
+      /* Restore material asli */
+      this.modelRoot.traverse((o) => {
+        if (o.isMesh && o.userData.originalMatForWireframe) {
+          o.material.dispose();
+          o.material = o.userData.originalMatForWireframe;
+          delete o.userData.originalMatForWireframe;
+        }
+      });
+      return false;
+    }
 
+    /* 2. Buat material transparan + garis EdgesGeometry */
     this.modelRoot.traverse((o) => {
       if (o.isMesh && o.geometry) {
-        /*
-         * Threshold 15 derajat: Hanya gambar garis jika perubahan sudut > 15°.
-         * Ini akan membuang semua garis diagonal pada permukaan datar!
-         */
+        // Simpan material asli agar bisa di-restore
+        if (!o.userData.originalMatForWireframe) {
+          o.userData.originalMatForWireframe = o.material;
+        }
+
+        // Buat material "ghost" (transparan) dengan warna sama
+        const baseColor =
+          o.material && o.material.color
+            ? o.material.color.clone()
+            : new THREE.Color(0xf9d72c);
+
+        const ghostMat = new THREE.MeshStandardMaterial({
+          color: baseColor,
+          transparent: true,
+          opacity: 0.08,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+          roughness: 0.9,
+          metalness: 0.0,
+        });
+        o.material = ghostMat;
+
+        // Garis tepi (threshold 15° — hanya sudut tajam)
         const edges = new THREE.EdgesGeometry(o.geometry, 15);
         const lineMat = new THREE.LineBasicMaterial({
           color: lineColor,
           transparent: true,
-          opacity: 0.85,
+          opacity: 0.9,
           depthTest: true,
         });
 
         const line = new THREE.LineSegments(edges, lineMat);
         line.userData.isWireframeOverlay = true;
-
-        // Agar garis digambar di atas model
         line.renderOrder = 1;
-
         o.add(line);
       }
     });

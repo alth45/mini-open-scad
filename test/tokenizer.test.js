@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { tokenize } from "./tokenizer.js";
+import { tokenize } from "../src/core/tokenizer.js";
 
 describe("Tokenizer", () => {
   it("harus memecah kode dasar menjadi token", () => {

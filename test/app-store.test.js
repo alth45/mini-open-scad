@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { store } from "./app-store.js";
+import { store } from "../src/store/app-store.js";
 
 describe("AppStore", () => {
   it("harus mengembalikan snapshot yang frozen (immutable)", () => {

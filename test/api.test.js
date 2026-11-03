@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import * as api from "./api.js";
+import * as api from "../src/api.js";
 
 describe("Public API Contract", () => {
   it("harus mengekspor fungsi inti untuk testing", () => {

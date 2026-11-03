@@ -544,6 +544,49 @@ export function makeBuiltins(evalStatements) {
     return [g];
   }
 
+  // ✅ FUNGSI LOKAL — bisa dipanggil tanpa `this`
+  function intersectObjectsFn(kids, node, scope, ctx) {
+    if (kids.length === 0) return [];
+    if (kids.length === 1) return [kids[0]];
+
+    if (isManifoldReady()) {
+      try {
+        const manifolds = kids.map((k) => objToManifold(k)).filter(Boolean);
+        if (manifolds.length >= 2) {
+          let result = manifolds[0];
+          for (let i = 1; i < manifolds.length; i++) {
+            result = result.intersect(manifolds[i]);
+          }
+          const mesh = makeMesh(manifoldMeshToGeo(result.getMesh()));
+          const firstKid = kids.find((k) => k && k.isMesh && k.material);
+          if (firstKid) {
+            mesh.material = firstKid.material.clone();
+          }
+          return [mesh];
+        }
+      } catch (e) {
+        ctx.warn("Manifold intersection failed: " + e.message);
+      }
+    }
+
+    if (!CSG) {
+      ctx.warn(
+        "intersection() butuh three-bvh-csg; hanya child pertama yang dirender.",
+      );
+      return [kids[0]];
+    }
+
+    let result = makeBrush(kids[0]);
+    if (!result) return [];
+    for (let i = 1; i < kids.length; i++) {
+      ctx.check();
+      const tool = makeBrush(kids[i]);
+      if (!tool) continue;
+      result = csgApply(result, tool, CSG.INTERSECTION);
+    }
+    return [makeMesh(result.geometry)];
+  }
+
   return {
     children(a, node, scope, ctx) {
       const cc = findChildrenContext(scope);
@@ -1245,51 +1288,51 @@ export function makeBuiltins(evalStatements) {
     /* ====================method baru intersection==================*/
     intersection(a, node, scope, ctx) {
       const kids = evalStatements(node.children, scope, ctx).filter(Boolean);
-      return this.intersectObjects(kids, node, scope, ctx);
+      return intersectObjectsFn(kids, node, scope, ctx);
     },
-
     // Fungsi baru yang bisa dipanggil langsung dengan array objek
-    intersectObjects(kids, node, scope, ctx) {
-      if (kids.length === 0) return [];
-      if (kids.length === 1) return [kids[0]];
+    // intersectObjects(kids, node, scope, ctx) {
+    //   if (kids.length === 0) return [];
+    //   if (kids.length === 1) return [kids[0]];
 
-      if (isManifoldReady()) {
-        try {
-          const manifolds = kids.map((k) => objToManifold(k)).filter(Boolean);
-          if (manifolds.length >= 2) {
-            let result = manifolds[0];
-            for (let i = 1; i < manifolds.length; i++) {
-              result = result.intersect(manifolds[i]);
-            }
-            const mesh = makeMesh(manifoldMeshToGeo(result.getMesh()));
-            const firstKid = kids.find((k) => k && k.isMesh && k.material);
-            if (firstKid) {
-              mesh.material = firstKid.material.clone();
-            }
-            return [mesh];
-          }
-        } catch (e) {
-          ctx.warn("Manifold intersection failed: " + e.message);
-        }
-      }
+    //   if (isManifoldReady()) {
+    //     try {
+    //       const manifolds = kids.map((k) => objToManifold(k)).filter(Boolean);
+    //       if (manifolds.length >= 2) {
+    //         let result = manifolds[0];
+    //         for (let i = 1; i < manifolds.length; i++) {
+    //           result = result.intersect(manifolds[i]);
+    //         }
+    //         const mesh = makeMesh(manifoldMeshToGeo(result.getMesh()));
+    //         const firstKid = kids.find((k) => k && k.isMesh && k.material);
+    //         if (firstKid) {
+    //           mesh.material = firstKid.material.clone();
+    //         }
+    //         return [mesh];
+    //       }
+    //     } catch (e) {
+    //       ctx.warn("Manifold intersection failed: " + e.message);
+    //     }
+    //   }
 
-      if (!CSG) {
-        ctx.warn(
-          "intersection() butuh three-bvh-csg; hanya child pertama yang dirender.",
-        );
-        return [kids[0]];
-      }
+    //   if (!CSG) {
+    //     ctx.warn(
+    //       "intersection() butuh three-bvh-csg; hanya child pertama yang dirender.",
+    //     );
+    //     return [kids[0]];
+    //   }
 
-      let result = makeBrush(kids[0]);
-      if (!result) return [];
-      for (let i = 1; i < kids.length; i++) {
-        ctx.check();
-        const tool = makeBrush(kids[i]);
-        if (!tool) continue;
-        result = csgApply(result, tool, CSG.INTERSECTION);
-      }
-      return [makeMesh(result.geometry)];
-    },
+    //   let result = makeBrush(kids[0]);
+    //   if (!result) return [];
+    //   for (let i = 1; i < kids.length; i++) {
+    //     ctx.check();
+    //     const tool = makeBrush(kids[i]);
+    //     if (!tool) continue;
+    //     result = csgApply(result, tool, CSG.INTERSECTION);
+    //   }
+    //   return [makeMesh(result.geometry)];
+    // },
+    intersectObjects: intersectObjectsFn,
 
     hull(a, node, scope, ctx) {
       const kids = evalStatements(node.children, scope, ctx).filter(Boolean);

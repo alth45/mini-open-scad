@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { buildModel } from "./model.js";
-import { PRESETS } from "../config.js";
+import { buildModel } from "../src/viewer/model.js";
+import { PRESETS } from "../src/config.js";
 
 // Mock manifold engine agar tidak mencoba fetch WASM di Node.js
 vi.mock("../evaluator/manifold-engine.js", () => ({
