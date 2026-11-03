@@ -355,7 +355,17 @@ export class Viewer {
       this.clearMeasurement();
     }
   }
+  toggleFullscreenViewport() {
+    const isFullscreen = document.body.classList.contains(
+      "fullscreen-viewport",
+    );
+    this.setFullscreen(!isFullscreen);
+  }
 
+  setFullscreen(on) {
+    document.body.classList.toggle("fullscreen-viewport", on);
+    setTimeout(() => this.resize(), 50);
+  }
   clearMeasurement() {
     this._disposeMeasureGroup();
     this._measurePoints = [];

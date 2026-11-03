@@ -1,0 +1,3 @@
+export const WORKER_PROTOCOL_VERSION = 2;
+export const STORAGE_SCHEMA_VERSION = 3;
+export const SHARE_SCHEMA_VERSION = 2;

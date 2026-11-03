@@ -1,4 +1,5 @@
-﻿# 🐛 Known Issues
+﻿
+# 🐛 Known Issues
 
 > ← Kembali ke [README utama](../README.md)
 
@@ -6,7 +7,7 @@
 
 ---
 
-## ⚠️ Issue & Workaround
+## ⚠️ Issue & Workaround (Aktif)
 
 ### 🐌 `minkowski` lambat untuk mesh > 5000 vertex
 
@@ -20,7 +21,8 @@ minkowski() { complex_mesh(); sphere(2, $fn=64); }
 
 // ✅ lebih cepat
 minkowski() { complex_mesh(); sphere(2, $fn=16); }
-```
+
+````
 
 ---
 
@@ -43,11 +45,21 @@ difference() {
 
 ---
 
-### ⏱️ Model kompleks + worker cold start = delay ~200ms
+### 🧊 State Frozen — mutasi langsung akan error
 
-Worker perlu waktu inisialisasi pada render pertama.
+Sejak **Fase 2**, `state` mengembalikan **frozen snapshot**. Kamu tidak bisa memutasi properti secara langsung (akan melempar `TypeError: Cannot assign to read only property`).
 
-> ✅ **Status:** **Normal** — delay hilang setelah warmup render pertama. Tidak perlu tindakan.
+> ✅ **Workaround:** Gunakan _spread operator_ untuk membuat objek baru
+
+```javascript
+// ❌ Ini akan error
+state.section.enabled = true;
+
+// ✅ Ini benar (memicu dispatch di store)
+state.section = { ...state.section, enabled: true };
+```
+
+> 📌 Lihat `src/app/viewer-tools.js` untuk contoh lengkap pola ini.
 
 ---
 
@@ -57,10 +69,10 @@ Encoding GIF berat untuk device mobile, terutama pada frame count tinggi.
 
 > ✅ **Workaround:** Pakai quality **"Small"**
 
-| Setting | Frame | Ukuran | Mobile-friendly |
-|:---|:---:|:---:|:---:|
-| Default | 60 | Besar | ❌ |
-| **Small** | 30 | Kecil | ✅ |
+| Setting   | Frame | Ukuran | Mobile-friendly |
+| :-------- | :---: | :----: | :-------------: |
+| Default   |  60   | Besar  |       ❌        |
+| **Small** |  30   | Kecil  |       ✅        |
 
 ---
 
@@ -76,15 +88,25 @@ Parsing STL besar memblokir UI dan memakan memori.
 
 ---
 
+## ✅ Resolved Issues
+
+### ✅ RESOLVED: Worker cold start (Fase 3)
+
+~~Worker perlu waktu inisialisasi pada render pertama.~~
+
+**Status: RESOLVED.** Worker sekarang **persistent** — dibuat sekali saat app load, dipakai berulang. Cold start hanya terjadi sekali di awal, tidak lagi per render. Render kedua dan seterusnya menjadi **instan** (hemat ~200-500ms per render).
+
+---
+
 ## 📋 Ringkasan
 
-| Issue | Severity | Workaround |
-|:---|:---:|:---|
-| `minkowski` lambat | 🟠 Sedang | Turunkan `$fn` / `offset(r)` |
-| `offset(r<0)` 3D | 🟡 Rendah | `difference()` |
-| Worker cold start | 🟢 Normal | Tunggu warmup |
-| GIF lag di mobile | 🟠 Sedang | Quality "Small" |
-| STL >50MB | 🔴 Tinggi | Split file / desktop only |
+| Issue              | Severity  | Workaround                     |
+| :----------------- | :-------: | :----------------------------- |
+| `minkowski` lambat | 🟠 Sedang | Turunkan `$fn` / `offset(r)`   |
+| `offset(r<0)` 3D   | 🟡 Rendah | `difference()`                 |
+| State Frozen       | 🟡 Rendah | Spread operator (`{...state}`) |
+| GIF lag di mobile  | 🟠 Sedang | Quality "Small"                |
+| STL >50MB          | 🔴 Tinggi | Split file / desktop only      |
 
 ---
 

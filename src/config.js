@@ -1,15 +1,19 @@
+export const TIME_BUDGET = {
+  evalDefaultMs: 15000, // Default untuk $maxTime
+  evalHardCapMs: 120000, // Batas keras maksimal $maxTime
+  watchdogGraceMs: 5000, // Toleransi tambahan sebelum watchdog membunuh worker
+};
+
 export const CONFIG = {
-  defaultFn: 0,           // 0 = "auto" — pakai $fa/$fs
-  defaultFa: 12,          // maximum angle per segment (deg)
-  defaultFs: 2,           // minimum arc length per segment (mm)
-  fallbackFn: 32,         // dipakai saat $fa/$fs tidak applicable (no radius info)
-  evalTimeoutMs: 15000,    // render standar butuh beberapa detik tergantung device
-  maxTimeoutMs: 120000,      // hardcap absolute
+  defaultFn: 0,
+  defaultFa: 12,
+  defaultFs: 2,
+  fallbackFn: 32,
   autoRenderDelay: 800,
   saveDelay: 500,
   maxLoopIterations: 20000,
   defaultColor: 0xf9d72c,
-  storageKey: 'mini-openscad-v1'
+  // Hapus storageKey, evalTimeoutMs, dan maxTimeoutMs
 };
 
 export const DEFAULT_CODE = `// ===============================================
@@ -25,23 +29,23 @@ difference() {
 `;
 
 export const PRESETS = {
-  'Cube': `// Kubus dasar
+  Cube: `// Kubus dasar
 $fn = 32;
 cube([20, 20, 20], center = true);
 `,
-  'Cylinder + Sphere': `// Silinder + bola di atasnya
+  "Cylinder + Sphere": `// Silinder + bola di atasnya
 $fn = 48;
 cylinder(h = 30, r = 10);
 translate([0, 0, 30]) sphere(r = 12);
 `,
-  'Difference: Cube minus Cylinder': `// Kubus berlubang (CSG difference)
+  "Difference: Cube minus Cylinder": `// Kubus berlubang (CSG difference)
 $fn = 64;
 difference() {
     cube([30, 30, 20], center = true);
     cylinder(h = 40, r = 8, center = true);
 }
 `,
-  'Union: Two Cylinders': `// Dua silinder digabung (union)
+  "Union: Two Cylinders": `// Dua silinder digabung (union)
 $fn = 48;
 union() {
     translate([-10, 0, 0]) cylinder(h = 25, r = 6);
@@ -50,7 +54,7 @@ union() {
         cylinder(h = 20, r = 6, center = true);
 }
 `,
-  'Linear Extrude: Gear': `// Gear sederhana (module + for + difference)
+  "Linear Extrude: Gear": `// Gear sederhana (module + for + difference)
 $fn = 64;
 
 module tooth() {
@@ -67,7 +71,7 @@ difference() {
     cylinder(h = 20, r = 5, center = true);
 }
 `,
-  'For Loop: Row of Cubes': `// Grid kubus dengan tinggi bertingkat
+  "For Loop: Row of Cubes": `// Grid kubus dengan tinggi bertingkat
 for (i = [0 : 4]) {
     for (j = [0 : 4]) {
         translate([i * 12, j * 12, 0])
@@ -75,17 +79,17 @@ for (i = [0 : 4]) {
     }
 }
 `,
-  'Rotate Extrude: Torus': `// Torus via rotate_extrude
+  "Rotate Extrude: Torus": `// Torus via rotate_extrude
 $fn = 64;
 rotate_extrude(angle = 360)
     translate([25, 0, 0]) circle(r = 8);
 `,
-  'Mirror + Color': `// Mirror & color
+  "Mirror + Color": `// Mirror & color
 $fn = 32;
 color("red") mirror([1, 0, 0])
     translate([10, 0, 0]) sphere(r = 8);
 
 color([0.2, 0.8, 0.4]) translate([0, 0, 0])
     cylinder(h = 20, r = 4, center = true);
-`
+`,
 };

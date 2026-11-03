@@ -13,6 +13,7 @@ export class EvalContext {
     files = null,
     scadCache = null,
     timeoutMs = CONFIG.evalTimeoutMs,
+    cancelChecker = null,
   ) {
     this.timeoutMs = Math.max(100, Math.min(CONFIG.maxTimeoutMs, timeoutMs));
     this.start = performance.now();
@@ -29,6 +30,7 @@ export class EvalContext {
     this.opTimings = Object.create(null);
     this._warned50 = false;
     this._warned75 = false;
+    this.cancelChecker = cancelChecker;
   }
 
   getFileBuffer(name) {
@@ -39,6 +41,9 @@ export class EvalContext {
   }
 
   check() {
+    if (this.cancelChecker && this.cancelChecker()) {
+      throw new SCADError("Cancelled", 0, 0, "Render dibatalkan oleh user");
+    }
     const now = performance.now();
     const elapsed = now - this.start;
     const pct = elapsed / this.timeoutMs;
@@ -553,7 +558,7 @@ export function evalStatements(stmts, scope, ctx) {
       ctx.check();
       const res = evalStatement(st, scope, ctx);
       if (!res || res.length === 0) continue;
-      
+
       // Abaikan module/function def karena sudah didaftarkan di Tahap 1
       if (st.type === "ModuleDef" || st.type === "FunctionDef") continue;
 

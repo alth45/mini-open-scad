@@ -1,6 +1,6 @@
 import { state } from "../state.js";
 import { toast } from "../ui/status.js";
-import { createDropdown } from "../ui/dropdown.js"; // <-- IMPORT BARU
+import { createDropdown } from "../ui/dropdown.js";
 
 export function initViewerTools(viewer) {
   /* 1. Fullscreen */
@@ -102,9 +102,11 @@ export function initViewerTools(viewer) {
 
   /* 4. Section */
   let secSlider, secValue, secAxisBtns, secFlip, secPanel;
+
   function syncSec() {
     viewer.setSection(state.section);
   }
+
   function refreshSec() {
     if (!state.section.enabled || !secSlider) return;
     const b = viewer.getModelBounds();
@@ -119,20 +121,27 @@ export function initViewerTools(viewer) {
     let pos = state.section.position;
     if (pos < min - margin || pos > max + margin) {
       pos = (min + max) / 2;
-      state.section.position = pos;
+      // KUNCI PERBAIKAN 1: Gunakan spread operator
+      state.section = { ...state.section, position: pos };
       syncSec();
     }
     secSlider.value = pos;
     secValue.textContent = Number(pos).toFixed(2);
   }
+
   function setSecEnabled(on) {
-    state.section.enabled = on;
+    // KUNCI PERBAIKAN 2: Gunakan spread operator
+    state.section = { ...state.section, enabled: on };
+
     const btn = document.getElementById("btnSection");
     if (on) {
       const b = viewer.getModelBounds();
-      state.section.position = b
+      const newPos = b
         ? (b.min[state.section.axis] + b.max[state.section.axis]) / 2
         : 0;
+      // KUNCI PERBAIKAN 3: Gunakan spread operator
+      state.section = { ...state.section, position: newPos };
+
       secPanel.classList.remove("hidden");
       btn?.classList.add("toggle-on");
       refreshSec();
@@ -142,16 +151,26 @@ export function initViewerTools(viewer) {
     }
     syncSec();
   }
+
   function setSecAxis(axis) {
-    state.section.axis = axis;
+    // KUNCI PERBAIKAN 4: Gunakan spread operator
+    state.section = { ...state.section, axis: axis };
+
     secAxisBtns.forEach((b) =>
       b.classList.toggle("active", b.dataset.axis === axis),
     );
     const b = viewer.getModelBounds();
-    if (b) state.section.position = (b.min[axis] + b.max[axis]) / 2;
+    if (b) {
+      // KUNCI PERBAIKAN 5: Gunakan spread operator
+      state.section = {
+        ...state.section,
+        position: (b.min[axis] + b.max[axis]) / 2,
+      };
+    }
     refreshSec();
     syncSec();
   }
+
   if (overlay) {
     const btn = document.createElement("button");
     btn.id = "btnSection";
@@ -177,7 +196,11 @@ export function initViewerTools(viewer) {
       b.classList.toggle("active", b.dataset.axis === "z"),
     );
     secSlider.addEventListener("input", () => {
-      state.section.position = parseFloat(secSlider.value);
+      // KUNCI PERBAIKAN 6: Gunakan spread operator
+      state.section = {
+        ...state.section,
+        position: parseFloat(secSlider.value),
+      };
       secValue.textContent = state.section.position.toFixed(2);
       syncSec();
     });
@@ -185,7 +208,8 @@ export function initViewerTools(viewer) {
       b.addEventListener("click", () => setSecAxis(b.dataset.axis)),
     );
     secFlip.addEventListener("click", () => {
-      state.section.flipped = !state.section.flipped;
+      // KUNCI PERBAIKAN 7: Gunakan spread operator
+      state.section = { ...state.section, flipped: !state.section.flipped };
       secFlip.classList.toggle("toggle-on", state.section.flipped);
       syncSec();
     });
@@ -271,7 +295,6 @@ export function initViewerTools(viewer) {
     const ddContainer = document.createElement("div");
     ddContainer.id = "lightingDropdown";
     ddContainer.className = "dd-root";
-    // Styling manual agar pas di dalam overlay
     ddContainer.style.marginLeft = "6px";
     ddContainer.style.display = "inline-block";
     overlay.appendChild(ddContainer);
@@ -300,7 +323,6 @@ export function initViewerTools(viewer) {
       ],
       onSelect: (value) => {
         viewer.setLightingPreset(value);
-        // Update label
         const labels = {
           default: "💡 Default",
           studio: "📸 Studio",
@@ -308,7 +330,6 @@ export function initViewerTools(viewer) {
         };
         ddContainer.querySelector(".dd-label").textContent = labels[value];
 
-        // Toggle shadow plane
         if (viewer.shadowPlane) {
           viewer.shadowPlane.visible = value !== "default";
         }

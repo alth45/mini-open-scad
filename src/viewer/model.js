@@ -7,7 +7,12 @@ import {
   evalStatements,
 } from "../evaluator/index.js";
 import { applyParams } from "../evaluator/params.js";
-import { CONFIG } from "../config.js";
+import { TIME_BUDGET } from "../config.js";
+
+// Global cache di dalam modul (persists di memori Worker)
+let lastCode = null;
+let lastAst = null;
+let lastTokens = null;
 
 export function buildModel(
   code,
@@ -15,27 +20,42 @@ export function buildModel(
   files = null,
   previewMode = true,
   scadCache = null,
+  cancelChecker = null,
 ) {
   const tStart = performance.now();
 
-  /* --- tokenize --- */
+  /* --- tokenize & parse (DENGAN CACHE) --- */
   const t0 = performance.now();
-  const tokens = tokenize(code);
-  const tTokenize = performance.now() - t0;
+  let tokens, ast;
 
-  /* --- parse --- */
-  const t1 = performance.now();
-  const ast = new Parser(tokens).parseProgram();
-  const tParse = performance.now() - t1;
+  if (code === lastCode && lastAst) {
+    // CACHE HIT: Gunakan AST yang sudah ada
+    tokens = lastTokens;
+    ast = JSON.parse(JSON.stringify(lastAst)); // Deep clone karena applyParams akan memutasi AST
+  } else {
+    // CACHE MISS: Parse dari awal
+    tokens = tokenize(code);
+    ast = new Parser(tokens).parseProgram();
+
+    // Simpan ke cache
+    lastCode = code;
+    lastTokens = tokens;
+    lastAst = JSON.parse(JSON.stringify(ast)); // Simpan salinan bersih
+  }
+
+  const tParseTime = performance.now() - t0;
+  // Kita satukan waktu tokenize & parse ke satu metrik (tokenize)
+  const tTokenize = tParseTime;
+  const tParse = 0;
 
   /* --- apply params --- */
   if (paramValues) applyParams(ast, paramValues);
 
   /* --- scan $maxTime --- */
-  const userTimeout = scanMaxTime(ast, CONFIG.evalTimeoutMs);
+  const userTimeout = scanMaxTime(ast, TIME_BUDGET.evalDefaultMs);
 
   /* --- eval --- */
-  const ctx = new EvalContext(files, scadCache, userTimeout);
+  const ctx = new EvalContext(files, scadCache, userTimeout, cancelChecker);
   const rootScope = makeRootScope(paramValues, previewMode);
 
   const t2 = performance.now();
@@ -129,7 +149,10 @@ function scanMaxTime(ast, defaultMs) {
         st.value.type === "Literal" &&
         typeof st.value.value === "number"
       ) {
-        return Math.max(100, Math.min(CONFIG.maxTimeoutMs, st.value.value));
+        return Math.max(
+          100,
+          Math.min(TIME_BUDGET.evalHardCapMs, st.value.value),
+        );
       }
     }
   }
@@ -163,18 +186,21 @@ export function serializeModel(root) {
     }
 
     let color = [0.976, 0.843, 0.172];
-    let opacity = 0.1;
+    let opacity = 1.0; // KUNCI PERBAIKAN: Default 1.0 (solid), bukan 0.1
     let transparent = false;
-    if (obj.material && obj.material.color) {
-      color = [
-        obj.material.color.r,
-        obj.material.color.g,
-        obj.material.color.b,
-      ];
+
+    if (obj.material) {
+      if (obj.material.color) {
+        color = [
+          obj.material.color.r,
+          obj.material.color.g,
+          obj.material.color.b,
+        ];
+      }
+      if (obj.material.opacity !== undefined) opacity = obj.material.opacity;
+      if (obj.material.transparent !== undefined)
+        transparent = obj.material.transparent;
     }
-    if (obj.material.opacity !== undefined) opacity = obj.material.opacity;
-    if (obj.material.transparent !== undefined)
-      transparent = obj.material.transparent;
 
     meshes.push({
       positions:
@@ -212,7 +238,7 @@ export function deserializeModel(meshes) {
       metalness: 0.12,
       side: THREE.DoubleSide,
       transparent: m.transparent || false,
-      opacity: m.opacity !== undefined ? m.opacity : 0.1,
+      opacity: m.opacity !== undefined ? m.opacity : 1.0, // KUNCI PERBAIKAN
     });
 
     root.add(new THREE.Mesh(geo, mat));
