@@ -18,8 +18,10 @@ export function initMobileUI(deps) {
         tabButtons.forEach((x) => x.classList.remove("active"));
         btn.classList.add("active");
         mainEl.dataset.tab = btn.dataset.tab;
+
+        // Force viewer resize setelah DOM update
         if (btn.dataset.tab === "3d") {
-          setTimeout(() => viewer.resize(), 30);
+          viewer.scheduleResize?.() ?? setTimeout(() => viewer.resize(), 30);
         }
       });
     });

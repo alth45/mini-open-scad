@@ -559,6 +559,27 @@ button:disabled {
   padding: 3px 7px;
   border-radius: 5px;
   pointer-events: none;
+
+  /* ✨ BARU: horizontal layout */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ✨ BARU: styling per-axis */
+.bbox-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.bbox-key {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.75;
 }
 
 /* ---------- TOAST ---------- */
@@ -586,17 +607,37 @@ button:disabled {
 }
 
 /* ---------- RESPONSIVE ---------- */
+/* ============================================================
+   RESPONSIVE MOBILE — Canvas & Layout
+   ============================================================ */
 @media (max-width: 768px) {
-  #tabbar {
-    display: flex;
+  /* --- Topbar --- */
+  #topbar {
+    gap: 6px;
+    padding: 0 8px;
+    padding-top: env(safe-area-inset-top, 0);
+    height: calc(46px + env(safe-area-inset-top, 0px));
   }
 
   #brand span.name {
     display: none;
   }
 
+  #topbar button span.lbl {
+    display: none;
+  }
+
+  /* --- Tabbar (Code/3D/Console) --- */
+  #tabbar {
+    display: flex;
+    flex-shrink: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  /* --- Main Layout (Column) --- */
   #main {
     flex-direction: column;
+    min-height: 0;
   }
 
   #left {
@@ -604,18 +645,30 @@ button:disabled {
     min-width: 0;
     border-right: 0;
     flex: 1 1 auto;
+    min-height: 0;
   }
 
+  /* --- Right (Canvas 3D) --- */
   #right {
     flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    width: 100%;
   }
 
+  /* --- Tab Visibility Rules --- */
   #main[data-tab="code"] #right {
     display: none;
   }
 
   #main[data-tab="3d"] #left {
     display: none;
+  }
+
+  #main[data-tab="3d"] #right {
+    display: flex;
+    flex: 1 1 auto;
+    height: 100%;
   }
 
   #main[data-tab="console"] #right {
@@ -631,12 +684,124 @@ button:disabled {
     flex: 1 1 auto;
   }
 
-  #topbar {
-    gap: 6px;
-    padding: 0 8px;
+  /* --- Viewport Canvas --- */
+  #viewport {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
   }
 
-  #topbar button span.lbl {
+  #viewport canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  /* --- Viewport Overlay (tombol kiri atas) --- */
+  #viewportOverlay {
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    left: 8px;
+    gap: 4px;
+  }
+
+  #viewportOverlay button {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  /* --- View Preset Bar (bottom center) --- */
+  #viewPresetBar {
+    bottom: max(6px, env(safe-area-inset-bottom, 6px));
+  }
+
+  /* --- FPS & View Info --- */
+  #fps {
+    bottom: max(6px, env(safe-area-inset-bottom, 6px));
+    right: 8px;
+  }
+
+  #viewInfo {
+    bottom: max(6px, env(safe-area-inset-bottom, 6px));
+    left: 8px;
+
+    /* ✨ BARU: vertical layout di mobile */
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    padding: 5px 8px;
+    font-size: 10px;
+    line-height: 1.35;
+  }
+
+  /* --- Fullscreen Exit Button --- */
+  #fullscreenExit {
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    right: 8px;
+  }
+
+  /* --- Section Panel & Measure Info --- */
+  #sectionPanel {
+    bottom: calc(38px + env(safe-area-inset-bottom, 0px));
+  }
+
+  #measureInfo {
+    bottom: calc(42px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* --- Params Panel (saat di mode 3D) --- */
+  #paramsPanel {
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    right: 8px;
+    max-height: calc(100% - 16px - env(safe-area-inset-top, 0px));
+  }
+}
+
+/* ============================================================
+   LANDSCAPE MOBILE — Kompensasi tinggi yang pendek
+   ============================================================ */
+@media (max-width: 768px) and (orientation: landscape) {
+  #tabbar {
+    padding: 4px 8px;
+  }
+
+  #tabbar button {
+    padding: 6px;
+    font-size: 11px;
+  }
+
+  #topbar {
+    height: calc(40px + env(safe-area-inset-top, 0px));
+  }
+
+  #main {
+    /* Landscape: layout row agar editor + 3D bisa side-by-side */
+    flex-direction: row;
+  }
+
+  #left {
+    flex: 1 1 50%;
+    max-width: 50%;
+  }
+
+  #right {
+    flex: 1 1 50%;
+    max-width: 50%;
+  }
+
+  /* Landscape tidak pakai tab switching — tampilkan dua-duanya */
+  #main[data-tab="code"] #right,
+  #main[data-tab="3d"] #left,
+  #main[data-tab="console"] #right {
+    display: flex !important;
+  }
+
+  #main[data-tab="console"] #editorWrap {
+    display: flex !important;
+  }
+
+  /* Sembunyikan tabbar di landscape karena dua-duanya tampil */
+  #tabbar {
     display: none;
   }
 }

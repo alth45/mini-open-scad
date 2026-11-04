@@ -119,10 +119,29 @@ export class Viewer {
     // ==========================================
     // 7. EVENTS & LISTENERS
     // ==========================================
+    // ============ RESIZE HANDLING (ROBUST FOR MOBILE) ============
     this._resizeObserver = new ResizeObserver(() => this.resize());
     this._resizeObserver.observe(container);
+
     window.addEventListener("resize", () => this.resize());
+
+    // Orientasi berubah (portrait ↔ landscape) — beri jeda karena browser butuh waktu relayout
+    window.addEventListener("orientationchange", () => {
+      setTimeout(() => this.resize(), 100);
+      setTimeout(() => this.resize(), 400);
+      setTimeout(() => this.resize(), 800);
+    });
+
+    // URL bar mobile collapse/expand (Safari iOS, Chrome Android)
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", () => this.resize());
+    }
+
+    // Initial resize — panggil beberapa kali untuk handle render pertama
     this.resize();
+    requestAnimationFrame(() => this.resize());
+    setTimeout(() => this.resize(), 150);
+    setTimeout(() => this.resize(), 600);
 
     this.currentDirection = new THREE.Vector3(0.85, -1.0, 0.72).normalize();
     this.currentUp = new THREE.Vector3(0, 0, 1);
@@ -251,12 +270,43 @@ export class Viewer {
   }
 
   resize() {
-    const w = this.container.clientWidth || 1;
-    const h = this.container.clientHeight || 1;
-    if (!w || !h) return;
+    const w = this.container.clientWidth || 0;
+    const h = this.container.clientHeight || 0;
+    // Skip jika container belum punya dimensi valid (misal tab tersembunyi)
+    if (w < 1 || h < 1) return;
+
+    // Cegah resize berulang dengan dimensi sama
+    if (
+      this._lastW === w &&
+      this._lastH === h &&
+      this._lastDPR === window.devicePixelRatio
+    ) {
+      return;
+    }
+    this._lastW = w;
+    this._lastH = h;
+    this._lastDPR = window.devicePixelRatio;
+
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+  }
+
+  /**
+   * Force resize setelah tab switch / modal close.
+   * Menggunakan multiple frame + timeout untuk handle layout yang "telat" di mobile.
+   */
+  scheduleResize() {
+    // Double rAF untuk tunggu layout settle
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => this.resize());
+    });
+    // Timeout cadangan untuk Safari iOS yang kadang lambat
+    clearTimeout(this._resizeTimer1);
+    clearTimeout(this._resizeTimer2);
+    this._resizeTimer1 = setTimeout(() => this.resize(), 100);
+    this._resizeTimer2 = setTimeout(() => this.resize(), 400);
   }
 
   resetView() {
@@ -1236,7 +1286,10 @@ export class Viewer {
     this.controls.update();
 
     if (this._viewInfoEl) {
-      this._viewInfoEl.textContent = `bbox ${size.x.toFixed(1)} × ${size.y.toFixed(1)} × ${size.z.toFixed(1)}`;
+      this._viewInfoEl.innerHTML =
+        `<span class="bbox-item"><span class="bbox-key">X</span>${size.x.toFixed(1)}</span>` +
+        `<span class="bbox-item"><span class="bbox-key">Y</span>${size.y.toFixed(1)}</span>` +
+        `<span class="bbox-item"><span class="bbox-key">Z</span>${size.z.toFixed(1)}</span>`;
     }
   }
 
