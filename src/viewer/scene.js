@@ -1454,7 +1454,9 @@ export class Viewer {
   /* ============================================================
        Blueprint capture (untuk PDF export)
        ============================================================ */
-  captureViewForBlueprint(viewId, size = 1024) {
+  captureViewForBlueprint(viewId, size = 1024, options = {}) {
+    const { technicalStyle = true } = options;
+
     const savedPos = this.camera.position.clone();
     const savedUp = this.camera.up.clone();
     const savedTarget = this.controls.target.clone();
@@ -1465,10 +1467,10 @@ export class Viewer {
     const savedBg = this.scene.background;
     const savedGrid = this.grid ? this.grid.visible : false;
     const savedShadow = this.shadowPlane ? this.shadowPlane.visible : false;
-    const savedDim = this._dimensionVisible;
-    const savedMeasure = this._measureGroup
-      ? this._measureGroup.visible
-      : false;
+
+    // For technical style — track materials to restore
+    const savedMaterials = [];
+    const addedLineOverlays = [];
 
     try {
       // Hide UI/overlays untuk gambar teknik yang bersih
@@ -1485,7 +1487,42 @@ export class Viewer {
       this.renderer.setClearColor(0xffffff, 1);
       this.scene.background = new THREE.Color(0xffffff);
 
-      // Offscreen
+      // ✨ TECHNICAL STYLE: white fill + black outline
+      if (technicalStyle) {
+        this.modelRoot.traverse((o) => {
+          if (!o.isMesh || !o.geometry) return;
+
+          // Simpan material asli
+          savedMaterials.push({ mesh: o, material: o.material });
+
+          // Ganti dengan material putih solid + polygon offset
+          // polygonOffset menarik surface sedikit ke belakang agar edge lines selalu render di atasnya
+          o.material = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            side: THREE.DoubleSide,
+            polygonOffset: true,
+            polygonOffsetFactor: 1,
+            polygonOffsetUnits: 1,
+          });
+
+          // Edge overlay hitam (threshold 15° = hanya sudut tajam)
+          try {
+            const edges = new THREE.EdgesGeometry(o.geometry, 15);
+            const line = new THREE.LineSegments(
+              edges,
+              new THREE.LineBasicMaterial({ color: 0x000000 }),
+            );
+            line.userData.isBlueprintOverlay = true;
+            line.renderOrder = 1;
+            o.add(line);
+            addedLineOverlays.push({ parent: o, line });
+          } catch (e) {
+            console.warn("[blueprint] EdgesGeometry failed:", e);
+          }
+        });
+      }
+
+      // Offscreen render
       const offscreen = this._createOffscreen(size, size);
       offscreen.setClearColor(0xffffff, 1);
 
@@ -1499,7 +1536,23 @@ export class Viewer {
       this._destroyOffscreen(offscreen);
       return dataUrl;
     } finally {
-      // Restore semua state
+      // === RESTORE MATERIALS ===
+      for (const { mesh, material } of savedMaterials) {
+        // Dispose material putih yang temporary
+        if (mesh.material && mesh.material.dispose) {
+          mesh.material.dispose();
+        }
+        mesh.material = material;
+      }
+
+      // === REMOVE OVERLAY LINES ===
+      for (const { parent, line } of addedLineOverlays) {
+        parent.remove(line);
+        line.geometry.dispose();
+        line.material.dispose();
+      }
+
+      // === RESTORE STATE ===
       this.camera.position.copy(savedPos);
       this.camera.up.copy(savedUp);
       this.camera.aspect = savedAspect;
@@ -1511,8 +1564,8 @@ export class Viewer {
       this.scene.background = savedBg;
       if (this.grid) this.grid.visible = savedGrid;
       if (this.shadowPlane) this.shadowPlane.visible = savedShadow;
-      if (this._dimensionGroup) this._dimensionGroup.visible = savedDim;
-      if (this._measureGroup) this._measureGroup.visible = savedMeasure;
+      if (this._dimensionGroup) this._dimensionGroup.visible = false; // tetap tersembunyi
+      if (this._measureGroup) this._measureGroup.visible = false;
       if (this._sectionIndicator) this._sectionIndicator.visible = true;
     }
   }

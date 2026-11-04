@@ -26,6 +26,7 @@ import { bootApp } from "./app/boot.js";
 import { initMobileUI } from "./app/mobile-ui.js";
 import { initPWA } from "./app/pwa.js";
 import { toast } from "./ui/status.js";
+import { loadBundledLibraries } from "./files/bundled-libs.js";
 /* ============================================================
    Core Initialization
    ============================================================ */
@@ -174,7 +175,7 @@ initViewerTools(viewer);
 initExportUI({ viewer, editor, tabManager });
 initMobileUI({ viewer });
 initPWA({ log, toast });
-
+// Load bundled libraries (sekali saja per versi)
 /* ============================================================
    Init App
    ============================================================ */

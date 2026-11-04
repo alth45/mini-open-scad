@@ -86,6 +86,17 @@ export function initFilesUI(deps) {
     if (skipped > 0) log("warn", `${skipped} file dilewati`);
   }
 
+  const BUNDLED_LIBS = [
+    "gears.scad",
+    "rounded_shapes.scad",
+    "threads.scad",
+    "enclosure.scad",
+    "patterns.scad",
+    "joints.scad",
+    "electronics.scad",
+    "text_tools.scad",
+  ];
+
   async function refreshFilesList() {
     try {
       const files = await listFiles();
@@ -95,16 +106,58 @@ export function initFilesUI(deps) {
           '<div class="files-empty">Belum ada file.</div>';
         return;
       }
+
+      // Sort: bundled libs dulu, lalu alfabetis
+      files.sort((a, b) => {
+        const aB = BUNDLED_LIBS.includes(a.name);
+        const bB = BUNDLED_LIBS.includes(b.name);
+        if (aB !== bB) return aB ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+
       for (const f of files) {
         const isScad = /\.scad$/i.test(f.name);
+        const isBundled = BUNDLED_LIBS.includes(f.name);
         const el = document.createElement("div");
-        el.className = "files-item";
-        el.innerHTML = `<div class="files-info"><div class="files-name">${f.name}</div><div class="files-meta">${(f.size / 1024).toFixed(1)} KB</div></div>
-                    <div class="files-actions"><button class="files-insert">⌨</button><button class="files-delete">✕</button></div>`;
-        el.querySelector(".files-insert").addEventListener("click", () => {
-          const insert = isScad
-            ? `\ninclude <${f.name}>;\n`
-            : `\nimport("${f.name}");\n`;
+        el.className = "files-item" + (isBundled ? " files-item-bundled" : "");
+
+        // Badge berbeda: LIB (bundled), SCAD, atau STL
+        let badge;
+        if (isBundled) {
+          badge = '<span class="files-type-badge lib">📚 LIB</span>';
+        } else if (isScad) {
+          badge = '<span class="files-type-badge scad">SCAD</span>';
+        } else {
+          badge = '<span class="files-type-badge stl">STL</span>';
+        }
+
+        // Tombol delete — bundled libs tidak bisa dihapus
+        const deleteBtn = isBundled
+          ? `<button class="files-delete" disabled title="Library bawaan tidak bisa dihapus" style="opacity:.35;cursor:not-allowed">🔒</button>`
+          : `<button class="files-delete" title="Hapus">✕</button>`;
+
+        // Tombol insert — untuk bundled lib pakai `use` (rekomendasi), bisa alt-click untuk include
+        const insertTitle = isScad
+          ? isBundled
+            ? "Insert use <...>; (alt-click = include)"
+            : "Insert include <...>;"
+          : 'Insert import("...")';
+
+        el.innerHTML = `<div class="files-info"><div class="files-name">${badge}${f.name}</div><div class="files-meta">${(f.size / 1024).toFixed(1)} KB${isBundled ? " · bundled" : ""}</div></div>
+                    <div class="files-actions"><button class="files-insert" title="${insertTitle}">⌨</button>${deleteBtn}</div>`;
+
+        // Insert button
+        el.querySelector(".files-insert").addEventListener("click", (e) => {
+          let insert;
+          if (!isScad) {
+            insert = `\nimport("${f.name}");\n`;
+          } else if (isBundled && !e.altKey) {
+            // Bundled lib default: pakai `use` (hanya module & function)
+            insert = `\nuse <${f.name}>;\n`;
+          } else {
+            // User .scad atau alt-click bundled: pakai `include` (semua top-level code)
+            insert = `\ninclude <${f.name}>;\n`;
+          }
           const sel = document.getElementById("editor").selectionStart;
           const val = document.getElementById("editor").value;
           document.getElementById("editor").value =
@@ -112,20 +165,26 @@ export function initFilesUI(deps) {
           document.getElementById("editor").dispatchEvent(new Event("input"));
           filesModal.classList.add("hidden");
         });
-        el.querySelector(".files-delete").addEventListener(
-          "click",
-          async () => {
-            if (!confirm(`Hapus file '${f.name}'?`)) return;
-            await deleteFile(f.name);
-            await refreshFilesList();
-            scheduleAutoRender();
-          },
-        );
+
+        // Delete button (bundled = disabled)
+        if (!isBundled) {
+          el.querySelector(".files-delete").addEventListener(
+            "click",
+            async () => {
+              if (!confirm(`Hapus file '${f.name}'?`)) return;
+              await deleteFile(f.name);
+              await refreshFilesList();
+              scheduleAutoRender();
+            },
+          );
+        }
+
         filesListEl.appendChild(el);
       }
     } catch (err) {
       log("error", "Gagal list files: " + err.message);
     }
   }
+
   return { refreshFilesList };
 }

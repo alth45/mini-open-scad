@@ -133,6 +133,52 @@ const SYNTAX = [
       { name: 'PI', code: 'sphere(r = 10);\ncircumference = 2 * PI * 10;', desc: 'Konstanta π' }
     ]
   },
+    {
+    title: 'Bundled Libraries',
+    items: [
+      { 
+        name: 'use <gears.scad>', 
+        code: 'use <gears.scad>;\n\ngear(number_of_teeth = 20, circular_pitch = 5);\nrack(length = 50);\ntiming_pulley(teeth = 20, pitch = 2);', 
+        desc: 'Gear, rack, timing pulley' 
+      },
+      { 
+        name: 'use <rounded_shapes.scad>', 
+        code: 'use <rounded_shapes.scad>;\n\nrounded_cube([40,30,20], 4, center=true);\nchamfered_cube([30,30,30], 2, center=true);', 
+        desc: 'Rounded cube, chamfer, rounded cylinder' 
+      },
+      { 
+        name: 'use <threads.scad>', 
+        code: 'use <threads.scad>;\n\nmetric_bolt(length=20, diameter=6, pitch=1);', 
+        desc: 'Screw, bolt (simplified)' 
+      },
+      { 
+        name: 'use <enclosure.scad>', 
+        code: 'use <enclosure.scad>;\n\npcb_standoff(height=5, outer_d=6, hole_d=3);\nvent_slots(20, 2, 4, 4);', 
+        desc: 'Electronics enclosure parts' 
+      },
+      { 
+        name: 'use <patterns.scad>', 
+        code: 'use <patterns.scad>;\n\nlinear_extrude(height=3) honeycomb_2d([80,60], 10, 1.5);\nperforated_2d([60,40], 4, 8);\nlattice_3d([40,40,40], 10, 1.5);', 
+        desc: 'Honeycomb, grid, perforated, lattice' 
+      },
+      { 
+        name: 'use <joints.scad>', 
+        code: 'use <joints.scad>;\n\nsnap_fit_clip(15, 4, 10, 3, 2);\ndovetail_male(20, 10, 5);\nball_socket(8, 1.5, 120);', 
+        desc: 'Snap fit, dovetail, ball joint, hinge' 
+      },
+      { 
+        name: 'use <electronics.scad>', 
+        code: 'use <electronics.scad>;\n\npcb_mount_4x(58, 49, 5, 3);\ncable_clip(5, 1.5, 8);\nbattery_holder("AA", 2);\nraspi_mount("4");', 
+        desc: 'PCB mount, cable clip, battery holder' 
+      },
+      { 
+        name: 'use <text_tools.scad>', 
+        code: 'use <text_tools.scad>;\n\ntext_centered("HELLO", 15, 2);\ntext_circular("ROUND", 40, 5);\nlabel_box("NAME", [40,12,2], 7);', 
+        desc: 'Text center, circular, label box' 
+      },
+    ]
+  },
+
   {
     title: 'Parameters UI',
     items: [

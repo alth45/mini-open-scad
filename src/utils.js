@@ -12,7 +12,16 @@ export const escapeHtml = (s) =>
     s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
 export const isNum = v => typeof v === 'number' && Number.isFinite(v);
-export const numArg = (v, def = 0) => (isNum(v) ? v : def);
+export const numArg = (v, def = 0) => {
+  if (isNum(v)) return v;
+  if (v === null) {
+    throw new SCADError(
+      'Nilai undef tidak bisa dipakai sebagai angka. ' +
+      'Periksa variabel yang belum dideklarasikan atau ekspresi yang gagal.'
+    );
+  }
+  return def;
+};
 
 export const DEG = Math.PI / 180;
 

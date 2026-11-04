@@ -5,14 +5,7 @@ import { log } from "../ui/console.js";
 import { toast } from "../ui/status.js";
 
 export function initHomeUI(deps) {
-  const {
-    tabManager,
-    editor,
-    cheatSheet,
-    addTab,
-    saveNow,
-    scheduleAutoRender,
-  } = deps;
+  const { tabManager, cheatSheet, addTab, saveNow, scheduleAutoRender } = deps;
   const HOME_SEEN_KEY = "mini-openscad-home-seen";
 
   const homeScreen = createHomeScreen(document.getElementById("homeScreen"), {
@@ -45,11 +38,18 @@ export function initHomeUI(deps) {
     },
     onFileInsert(name) {
       homeScreen.hide();
-      const insert = `\nimport("${name}");\n`;
-      const sel = editor.getSelectionStart();
-      const val = editor.getValue();
-      editor.setValue(val.slice(0, sel) + insert + val.slice(sel));
-      document.getElementById("editor").dispatchEvent(new Event("input"));
+      const isScad = /\.scad$/i.test(name);
+
+      // Bedakan berdasarkan ekstensi
+      const insert = isScad ? `\nuse <${name}>;\n` : `\nimport("${name}");\n`;
+
+      const el = document.getElementById("editor");
+      const sel = el.selectionStart;
+      el.value = el.value.slice(0, sel) + insert + el.value.slice(sel);
+      el.dispatchEvent(new Event("input"));
+
+      // Feedback
+      toast(isScad ? `Inserted use <${name}>` : `Inserted import("${name}")`);
     },
     onFileDeleted() {
       scheduleAutoRender();

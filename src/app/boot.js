@@ -7,7 +7,10 @@ import { toast } from "../ui/status.js";
 
 export async function bootApp(deps) {
   const { tabManager, renderController, homeScreen, homeSeenKey } = deps;
-
+  // ✨ Load bundled libraries dulu
+  const { loadBundledLibraries } = await import("../files/bundled-libs.js");
+  loadBundledLibraries();
+  
   let shareData = null;
   try {
     shareData = await readShareFromUrl();
