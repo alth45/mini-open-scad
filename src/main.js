@@ -24,6 +24,8 @@ import { setupPreview } from "./app/preview-setup.js";
 import { setupTabs } from "./app/tabs-setup.js";
 import { bootApp } from "./app/boot.js";
 import { initMobileUI } from "./app/mobile-ui.js";
+import { initPWA } from "./app/pwa.js";
+import { toast } from "./ui/status.js";
 /* ============================================================
    Core Initialization
    ============================================================ */
@@ -170,7 +172,8 @@ initShortcuts({
 });
 initViewerTools(viewer);
 initExportUI({ viewer, editor, tabManager });
-initMobileUI({ viewer }); 
+initMobileUI({ viewer });
+initPWA({ log, toast });
 
 /* ============================================================
    Init App
