@@ -216,10 +216,10 @@ export function evalExpr(node, scope, ctx) {
       // 1. Akses Array / Vector
       if (Array.isArray(obj)) {
         if (i < 0 || i >= obj.length) {
-          ctx.warn(
-            `Index [${i}] di luar batas array (panjang: ${obj.length}) — mengembalikan undef.`,
+          throw new SCADError(
+            `Index [${i}] di luar batas array (panjang: ${obj.length})`,
+            node.line,
           );
-          return null;
         }
         return obj[i];
       }
@@ -227,10 +227,10 @@ export function evalExpr(node, scope, ctx) {
       // 2. KUNCI PERBAIKAN: Akses String
       if (typeof obj === "string") {
         if (i < 0 || i >= obj.length) {
-          ctx.warn(
+          throw new SCADError(
             `Index [${i}] di luar batas string (panjang: ${obj.length}) — mengembalikan undef.`,
+            node.line,
           );
-          return null;
         }
         return obj[i]; // Di JavaScript, string[index] otomatis mengembalikan huruf/karakter
       }
@@ -253,7 +253,7 @@ export function evalExpr(node, scope, ctx) {
         name: "anonymous",
         call(args, ctx) {
           const fnScope = new Scope(closureScope);
-          bindParams(fnNode.params, args, fnScope, closureScope, ctx);
+          bindParams(fnNode.params, args, fnScope, closureScope, ctx, fnNode);
           return evalExpr(fnNode.expr, fnScope, ctx);
         },
       };
@@ -449,7 +449,7 @@ function evalCall(node, scope, ctx) {
   const userFn = scope.getFunc(node.name);
   if (userFn) {
     const fnScope = new Scope(scope);
-    bindParams(userFn.params, callArgs, fnScope, scope, ctx);
+    bindParams(userFn.params, callArgs, fnScope, scope, ctx, node);
     return evalExpr(userFn.expr, fnScope, ctx);
   }
 
@@ -477,16 +477,18 @@ function evalCall(node, scope, ctx) {
   return fn(...pos);
 }
 
-function bindParams(params, args, targetScope, callerScope, ctx) {
-  /* Warn named arg yang tidak cocok dengan parameter */
+function bindParams(params, args, targetScope, callerScope, ctx, node = null) {
+  /* Err named arg yang tidak cocok dengan parameter */
   if (args.named && params.length > 0) {
     const paramNames = new Set(params.map((p) => p.name));
     for (const k in args.named) {
       if (!paramNames.has(k)) {
         const sug = suggestName(k, paramNames);
-        if (sug) {
-          ctx.warn(`Parameter '${k}' tidak dikenal (mungkin maksud: '${sug}')`);
-        }
+        const hint = sug ? ` Mungkin maksud: '${sug}'?` : "";
+        throw new SCADError(
+          `Parameter '${k}' tidak dikenal.${hint}`,
+          node?.line || 0,
+        );
       }
     }
   }
@@ -706,8 +708,10 @@ export function evalStatement(st, scope, ctx) {
 
       /* Cycle detection runtime */
       if (ctx.includeStack.has(file)) {
-        ctx.warn(`Circular include terdeteksi: '${file}' — diabaikan`);
-        return null;
+        throw new SCADError(
+          `Circular include terdeteksi: '${file}'. File tidak bisa include dirinya sendiri (langsung atau tidak langsung).`,
+          st.line,
+        );
       }
 
       const entry = ctx.getScadAst(file);
@@ -790,7 +794,7 @@ export function evalStatement(st, scope, ctx) {
 
         const args = evalArgsNode(st.args, scope, ctx);
         const modScope = new Scope(scope);
-        bindParams(userMod.params, args, modScope, scope, ctx);
+        bindParams(userMod.params, args, modScope, scope, ctx, st);
 
         modScope.childrenContext = {
           children: st.children,

@@ -1,28 +1,54 @@
-﻿
-# Mini OpenSCAD
+﻿# Mini OpenSCAD
 
 > Miniature CAD tool di browser — tulis OpenSCAD, lihat hasil 3D secara real-time.
 
 Editor OpenSCAD ringan yang berjalan 100% di browser. Tidak butuh install, tidak butuh GPU khusus, tidak butuh koneksi setelah first load. Cukup buka browser dan mulai model.
 
-![Mini OpenSCAD](https://img.shields.io/badge/status-stable-brightgreen) ![Vite](https://img.shields.io/badge/vite-5.4-blue) ![Three.js](https://img.shields.io/badge/three.js-0.160-green) ![Manifold](https://img.shields.io/badge/manifold--3d-WASM-orange) ![Tests](https://img.shields.io/badge/tests-21%20passed-success) ![License](https://img.shields.io/badge/license-MIT-blue)
+![Mini OpenSCAD](https://img.shields.io/badge/status-stable-brightgreen) ![Vite](https://img.shields.io/badge/vite-5.4-blue) ![Three.js](https://img.shields.io/badge/three.js-0.160-green) ![Manifold](https://img.shields.io/badge/manifold--3d-WASM-orange) ![Tests](https://img.shields.io/badge/tests-21%2B%20passed-success) ![License](https://img.shields.io/badge/license-MIT-blue)
+
+---
+
+## 🎯 Mengapa Mini OpenSCAD?
+
+> _"Kalau salah, ya error. Tidak dirender. Titik."_
+
+Berbeda dari OpenSCAD asli yang _lenient_ — banyak warning tapi tetap render hasil yang rusak — Mini OpenSCAD memakai **Strict Semantics**:
+
+| Skenario                          |         OpenSCAD Asli         |               Mini OpenSCAD               |
+| :-------------------------------- | :---------------------------: | :---------------------------------------: |
+| `cube(x)` dengan `x = undef`      | ⚠️ Warning, render kubus aneh |     ❌ **ERROR** — render dihentikan      |
+| `polygon()` self-intersecting     |  ⚠️ Warning, hasil terlipat   | ❌ **ERROR** — tunjukkan baris yang salah |
+| Typo named arg `box(w=10, hh=20)` |  ⚠️ Warning, `hh` diabaikan   |   ❌ **ERROR** — "mungkin maksud `h`?"    |
+| `children(5)` di module 1 child   |       ⚠️ Warning, skip        |               ❌ **ERROR**                |
+| `linear_extrude() cube(10)`       |        ⚠️ Silent fail         |       ❌ **ERROR** — butuh child 2D       |
+| `is_undef(x)`                     |            ✅ true            |            ✅ true (konsisten)            |
+| `if (is_undef(x))` cek defensif   |           ✅ jalan            |                 ✅ jalan                  |
+
+**Manfaat:**
+
+- 🛡️ Tidak ada "silent bug" yang baru ketahuan saat print
+- 🎯 Error menyebut **baris + hint** ("mungkin maksud X")
+- 🚀 Kode bersih dan predictable
+
+📖 Detail lengkap: [Strict Semantics](./docs-md/strict-semantics.md)
 
 ---
 
 ## 📚 Documentation
 
-| Dokumen                                                                | Deskripsi                                                 |
-| :--------------------------------------------------------------------- | :-------------------------------------------------------- |
-| [🏗️ Arsitektur & Design Principles](./docs-md/architecture.md)         | Struktur proyek, 9 prinsip desain, roadmap fase 0-5       |
-| [🛡️ Rencana Arsitektur Robust](./docs-md/rencana-arsitektur-robust.md) | Audit, kontrak, state store, worker persistent            |
-| [🆕 Fitur Terbaru](./docs-md/fitur-terbaru.md)                         | Daftar fitur-fitur terbaru yang sudah terimplementasi     |
-| [🐛 Troubleshooting & CSG](./docs-md/troubleshooting.md)               | Catatan sejarah perbaikan engine (Manifold, STL, 3MF)     |
-| [🧪 Testing & Sanity Checklist](./docs-md/testing.md)                  | Checklist manual fitur bahasa & tool                      |
-| [📊 Benchmark & Stress Test](./docs-md/benchmark.md)                   | Hasil uji beban (Stress Test), bug hunting, dan edge case |
-| [🌐 Deploy Guide](./docs-md/deploy.md)                                 | Netlify, Vercel, GitHub Pages, Docker                     |
-| [🛠️ Development Tips](./docs-md/dev-tips.md)                           | Debug Worker, verbose logs, extend builtins & syntax      |
-| [🐛 Known Issues](./docs-md/known-issues.md)                           | Isu yang diketahui beserta workaround                     |
-| [🤝 Kontribusi](./docs-md/contributing.md)                             | Style guide, checklist PR, cara berkontribusi             |
+| Dokumen                                                                | Deskripsi                                           |
+| :--------------------------------------------------------------------- | :-------------------------------------------------- |
+| [🏗️ Arsitektur & Design Principles](./docs-md/architecture.md)         | Struktur proyek, 9 prinsip desain, roadmap fase 0-5 |
+| [🛡️ Rencana Arsitektur Robust](./docs-md/rencana-arsitektur-robust.md) | Audit, kontrak, state store, worker persistent      |
+| [🎯 Strict Semantics](./docs-md/strict-semantics.md)                   | Filosofi error vs warning, katalog pelanggaran      |
+| [🆕 Fitur Terbaru](./docs-md/fitur-terbaru.md)                         | Daftar fitur terbaru yang sudah terimplementasi     |
+| [🐛 Troubleshooting & CSG](./docs-md/troubleshooting.md)               | Catatan sejarah perbaikan engine                    |
+| [🧪 Testing & Sanity Checklist](./docs-md/testing.md)                  | Checklist manual fitur bahasa & tool                |
+| [📊 Benchmark & Stress Test](./docs-md/benchmark.md)                   | Hasil stress test + bug hunting                     |
+| [🌐 Deploy Guide](./docs-md/deploy.md)                                 | Netlify, Vercel, GitHub Pages, Docker               |
+| [🛠️ Development Tips](./docs-md/dev-tips.md)                           | Debug Worker, verbose logs, extend builtins         |
+| [🐛 Known Issues](./docs-md/known-issues.md)                           | Isu diketahui + workaround                          |
+| [🤝 Kontribusi](./docs-md/contributing.md)                             | Style guide, checklist PR                           |
 
 ---
 
@@ -38,30 +64,31 @@ Editor OpenSCAD ringan yang berjalan 100% di browser. Tidak butuh install, tidak
 - **Control Flow** — `for`, `intersection_for`, `if/else`, `module`, `function`, `children()`, `$children`
 - **Advanced** — List comprehension (`[for ... each ... if ...]`), anonymous function (`f = function(x) x*2`), `let()`, ternary
 - **Modifiers** — `*` (disable), `!` (show-only), `#` (highlight), `%` (background)
-- **Math & Data** — 40+ builtin: `sin`, `cos`, `min`, `max`, `norm`, `cross`, `rands`, `chr`, `ord`, `search`, `is_num`, `is_list`, `is_string`, dll
-- **Debug** — `echo`, `assert`
+- **Math & Data** — 50+ builtin: `sin`, `cos`, `min`, `max`, `norm`, `cross`, `rands`, `chr`, `ord`, `search`, `is_num`, `is_list`, `is_string`, `is_bool`, `is_undef`, `is_function`, `is_range`, `is_object`
+- **Debug** — `echo`, `assert`, `render()` (kompatibilitas)
 - **STL Import** — `import("model.stl")` dengan drag & drop
 
 ### 🎨 Editor & UI
 
 - **Editor Pro** — Syntax highlighting, line numbers, undo/redo, **Code Folding**, **Auto-format (`Shift+Alt+F`)**, **Toggle Line Comment (`Ctrl+/`)**, **Multi-cursor (`Ctrl+Alt+↓`)**
 - **Parameter UI** — Slider, enum, color, bool otomatis dari `// @param` atau OpenSCAD Customizer
-- **Multi-tab Project** — Beberapa proyek terpisah dengan rename dan close
+- **Multi-tab Project** — Beberapa proyek terpisah dengan rename, close, mobile switcher compact
 - **Find & Replace** — `Ctrl+F` / `Ctrl+H` dengan case-sensitive & whole-word
 - **Cheat Sheet** — `?` untuk referensi lengkap bahasa + shortcut
-- **Friendly Errors** — "Mungkin maksud Anda X" untuk typo variabel/fungsi
+- **Friendly Errors** — Pesan error menyebut baris + hint "mungkin maksud Anda X"
+- **Mobile-first Menu** — Menu "More" (⋮) dengan dropdown untuk tombol jarang dipakai
 
 ### 🖥️ Viewer 3D
 
 - **OrbitControls** — Drag kiri (rotate), drag kanan (pan), scroll (zoom)
-- **Camera Presets** — 7 view: ISO, FRT, RGT, TOP, BCK, LFT, BTM (dengan keyboard `1`-`7`)
+- **Camera Presets** — 7 view: ISO, FRT, RGT, TOP, BCK, LFT, BTM (shortcut `1`-`7`)
 - **Fullscreen Mode** — `F` untuk fokus penuh
 - **Studio Lighting** — Preset Default / Studio (PBR + Soft Shadows) / Dramatic
 - **Section Plane** — Potong model di sumbu X/Y/Z (lihat isi dalam)
 - **Dimension Overlay** — BBox wireframe + dimensi X/Y/Z otomatis
-- **Measure Tool** — Ukur jarak 2 titik dengan **Vertex/Edge/Face Snapping** (CAD-grade)
+- **Measure Tool** — Ukur jarak 2 titik dengan **Vertex/Edge/Face Snapping** (CAD-grade precision)
 - **Printability Checker** — Highlight area overhang > 45° (merah = butuh support)
-- **Wireframe & Grid** — Toggle visual
+- **Wireframe Mode** — EdgesGeometry dengan ghost material (transparan 8%)
 
 ### 📤 Export & Capture
 
@@ -76,8 +103,8 @@ Editor OpenSCAD ringan yang berjalan 100% di browser. Tidak butuh install, tidak
 ### 🔗 Sharing & Persistence
 
 - **Share via URL** — Gzip-compressed, versioned (tolak versi mismatch)
-- **Multi-tab** — Simpan proyek di localStorage (auto-migrate v1 → v3)
-- **File Store** — IndexedDB untuk STL antar sesi
+- **Multi-tab** — Simpan proyek di localStorage (auto-migrate v1 → v3 dengan backup)
+- **File Store** — IndexedDB untuk STL antar sesi (dengan quota handler)
 - **Light/Dark Theme** — Toggle dengan persistensi
 - **Offline-ready** — Setelah first load, jalan tanpa internet
 
@@ -87,17 +114,18 @@ Editor OpenSCAD ringan yang berjalan 100% di browser. Tidak butuh install, tidak
 
 Hasil refactor **Fase 0-5** (lihat [rencana-arsitektur-robust.md](./docs-md/rencana-arsitektur-robust.md)):
 
-| Fitur                     | Deskripsi                                                                  |
-| :------------------------ | :------------------------------------------------------------------------- |
-| **Web Worker Persistent** | Worker dibuat **sekali** (bukan per render), hemat ~200-500ms              |
-| **AST Cache**             | Parse ulang hanya saat kode berubah — slider drag nyaris instan            |
-| **Frozen State Store**    | `store.getState()` mengembalikan snapshot immutable + `dispatch/subscribe` |
-| **Error Boundary**        | Async error tertangkap → toast + log (tidak ada layar putih)               |
-| **Contract Versioning**   | Storage/Share/Worker punya `schemaVersion` eksplisit + auto-backup         |
-| **Manifold WASM**         | Engine CSG WebAssembly — 100% watertight, siap 3D printing                 |
-| **Cancellation**          | Cancel render kooperatif tanpa membuang WASM state                         |
-| **CI/CD**                 | GitHub Actions otomatis build + 21 unit tests                              |
-| **Public API**            | `src/api.js` sebagai entry point stabil untuk test/integrasi               |
+| Fitur                     | Deskripsi                                                                     |
+| :------------------------ | :---------------------------------------------------------------------------- |
+| **Web Worker Persistent** | Worker dibuat **sekali** (bukan per render), hemat ~200-500ms                 |
+| **AST Cache**             | Parse ulang hanya saat kode berubah — slider drag nyaris instan               |
+| **Frozen State Store**    | `store.getState()` mengembalikan snapshot immutable + `dispatch/subscribe`    |
+| **Error Boundary**        | Async error tertangkap → toast + log (tidak ada layar putih)                  |
+| **Contract Versioning**   | Storage/Share/Worker punya `schemaVersion` eksplisit + auto-backup            |
+| **Manifold WASM**         | Engine CSG WebAssembly — 100% watertight, siap 3D printing                    |
+| **Cancellation**          | Cancel render kooperatif tanpa membuang WASM state                            |
+| **CI/CD**                 | GitHub Actions otomatis build + 21+ unit tests                                |
+| **Public API**            | `src/api.js` sebagai entry point stabil untuk test/integrasi                  |
+| **Strict Semantics**      | Fail-fast validation: error di build/test, warning hanya untuk info non-fatal |
 
 ---
 
@@ -116,7 +144,6 @@ cd mini-open-scad
 npm install
 ```
 
-
 ### Development
 
 ```sh
@@ -129,7 +156,7 @@ Buka http://localhost:8080 (atau port yang ditampilkan Vite).
 
 ```sh
 npm run build     # production build
-npm test          # run 21 unit tests
+npm test          # run all unit tests
 npm run preview   # test hasil build
 ```
 
@@ -158,36 +185,47 @@ difference() {
 
 ![Slider parameter](docs/images/ss2.PNG)
 
-```c
+```ts
 // @param size  {slider 10 60 30} Box size
 // @param color {color #3b82f6}  Color
 
-color(color)
-    cube([size, size, size], center = true);
+color(color);
+cube([size, size, size], (center = true));
 ```
 
 ### 3. Vase dengan rotate_extrude
 
 ![Screenshot App](docs/images/ss3.png)
 
-```c
+```ts
 $fn = 96;
-rotate_extrude(angle = 360)
-    polygon(points = [
-        [ 0,  0], [20,  0], [22, 15], [15, 35],
-        [18, 55], [12, 70], [ 9, 70], [13, 55],
-        [10, 35], [17, 15], [15,  3], [ 0,  3]
-    ]);
+rotate_extrude((angle = 360));
+polygon(
+  (points = [
+    [0, 0],
+    [20, 0],
+    [22, 15],
+    [15, 35],
+    [18, 55],
+    [12, 70],
+    [9, 70],
+    [13, 55],
+    [10, 35],
+    [17, 15],
+    [15, 3],
+    [0, 3],
+  ]),
+);
 ```
 
 ### 4. Rounded Cube dengan `offset`
 
 ![Screenshot App](docs/images/ss4.png)
 
-```c
+```ts
 $fn = 32;
-offset(r = 3, $fn = 16)
-    cube([20, 20, 20], center = true);
+offset((r = 3), ($fn = 16));
+cube([20, 20, 20], (center = true));
 ```
 
 ### Presets bawaan
@@ -240,7 +278,7 @@ Dropdown **Presets** di topbar berisi 8 contoh siap pakai: Cube, Sphere, Cylinde
 npm test
 ```
 
-**21 unit tests** mencakup:
+**Automated tests** mencakup:
 
 - `tokenizer.test.js` (4) — Tokenizer dasar, komentar, modifier, notasi ilmiah
 - `model.test.js` (8) — Golden test 8 preset (tokenize → parse → eval → geometry)
@@ -249,6 +287,8 @@ npm test
 - `docs-sync.test.js` (2) — Docs sync + no test imports in prod
 
 CI (GitHub Actions) menjalankan `npm run build` + `npm test` otomatis pada setiap push/PR.
+
+**Manual sanity checklist** untuk strict semantics ada di [testing.md](./docs-md/testing.md).
 
 ---
 

@@ -614,8 +614,10 @@ export function makeBuiltins(evalStatements) {
       const out = [];
       for (const i of indices) {
         if (!Number.isFinite(i) || i < 0 || i >= n) {
-          ctx.warn(`children(${i}): index di luar jangkauan`);
-          continue;
+          throw new SCADError(
+            `children(${i}): index di luar jangkauan (tersedia: 0..${n - 1})`,
+            node.line,
+          );
         }
         out.push(...evalStatements([cc.children[i]], cc.callerScope, ctx));
       }
@@ -763,9 +765,9 @@ export function makeBuiltins(evalStatements) {
           node.line,
         );
       const center = !!a.named.center;
-      const sx = Math.max(Math.abs(size[0]), 1e-6),
-        sy = Math.max(Math.abs(size[1]), 1e-6),
-        sz = Math.max(Math.abs(size[2]), 1e-6);
+      const sx = Math.max(Math.abs(numArg(size[0], 1e-6)), 1e-6),
+        sy = Math.max(Math.abs(numArg(size[1], 1e-6)), 1e-6),
+        sz = Math.max(Math.abs(numArg(size[2], 1e-6)), 1e-6);
       const g = new THREE.BoxGeometry(sx, sy, sz);
       if (!center) g.translate(sx / 2, sy / 2, sz / 2);
       return [makeMesh(g)];
@@ -924,8 +926,9 @@ export function makeBuiltins(evalStatements) {
       }
 
       if (isSelfIntersecting) {
-        ctx.warn(
-          "⚠ polygon() mendeteksi garis yang saling menyilang. Bentuk mungkin terlipat/cacat saat di-extrude.",
+        throw new SCADError(
+          "polygon(): garis saling menyilang tidak valid. Periksa urutan titik — tidak boleh ada segmen yang saling berpotongan.",
+          node.line,
         );
       }
 
@@ -1426,9 +1429,11 @@ export function makeBuiltins(evalStatements) {
       if (points.length < 4) return [];
       try {
         return [makeMesh(new ConvexGeometry(points))];
-      } catch {
-        ctx.warn("hull(): gagal membuat convex hull.");
-        return [];
+      } catch (e) {
+        throw new SCADError(
+          `hull(): gagal membuat convex hull (${e.message})`,
+          node.line,
+        );
       }
     },
 
@@ -1524,9 +1529,11 @@ export function makeBuiltins(evalStatements) {
         if (sumPts.length > 60000) ctx.warn("minkowski(): vertex count besar");
         try {
           return [makeMesh(new ConvexGeometry(sumPts))];
-        } catch {
-          ctx.warn("minkowski(): gagal.");
-          return [];
+        } catch (e) {
+          throw new SCADError(
+            `minkowski(): gagal membuat convex hull (${e.message})`,
+            node.line,
+          );
         }
       }
     },
@@ -1550,8 +1557,10 @@ export function makeBuiltins(evalStatements) {
 
       for (const k of kids) if (is2D(k)) shapes.push(...k.shapes);
       if (shapes.length === 0) {
-        ctx.warn("linear_extrude(): butuh child 2D.");
-        return [];
+        throw new SCADError(
+          "linear_extrude(): butuh child 2D (circle, square, polygon, atau text).",
+          node.line,
+        );
       }
 
       const meshes = [];
@@ -1590,8 +1599,10 @@ export function makeBuiltins(evalStatements) {
       const shapes = [];
       for (const k of kids) if (is2D(k)) shapes.push(...k.shapes);
       if (shapes.length === 0) {
-        ctx.warn("rotate_extrude(): butuh child 2D.");
-        return [];
+        throw new SCADError(
+          "rotate_extrude(): butuh child 2D (circle, square, polygon, atau text).",
+          node.line,
+        );
       }
       let maxR = 0;
       for (const s of shapes)
