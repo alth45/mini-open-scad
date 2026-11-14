@@ -27,6 +27,7 @@ import { initMobileUI } from "./app/mobile-ui.js";
 import { initPWA } from "./app/pwa.js";
 import { toast } from "./ui/status.js";
 import { loadBundledLibraries } from "./files/bundled-libs.js";
+import { initAIUI } from "./app/ai-ui.js";
 /* ============================================================
    Core Initialization
    ============================================================ */
@@ -173,6 +174,14 @@ initShortcuts({
 });
 initViewerTools(viewer);
 initExportUI({ viewer, editor, tabManager });
+// ✨ AI Code Fixer — harus sebelum initMobileUI
+initAIUI({
+  editor,
+  tabManager,
+  saveNow: renderController.saveNow,
+  doRender: renderController.doRender,
+  getLastError: renderController.getLastError,
+});
 initMobileUI({ viewer });
 initPWA({ log, toast });
 // Load bundled libraries (sekali saja per versi)

@@ -93,3 +93,10 @@ color([0.2, 0.8, 0.4]) translate([0, 0, 0])
     cylinder(h = 20, r = 4, center = true);
 `,
 };
+
+export const AI_CONFIG = {
+  baseURL: "https://tokenharbor.ai/v1",
+  model: "deepseek-v4.1-flash:free",
+  keyStorage: "mini-openscad-tokenharbor-key",
+  maxTokens: 8192,
+};

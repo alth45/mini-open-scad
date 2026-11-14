@@ -17,11 +17,13 @@ export function initRenderController(deps) {
     deps;
   let saveTimer = null;
   let autoRenderTimer = null;
+  let _lastError = null; // ✨ state error terakhir untuk AI Code Fixer
 
   function refreshParams() {
     const params = parseParams(editor.getValue());
     const merged = mergeParamValues(params, store.getState().paramValues);
     store.dispatch({ type: "SET_PARAMS", payload: merged });
+    // ❌ TIDAK clear _lastError di sini — biarkan error render terakhir persist
     tabManager?.updateActiveSilent({ paramValues: merged });
     paramsPanel.setParams(params, merged);
     btnParams.classList.toggle("has-params", params.length > 0);
@@ -108,6 +110,9 @@ export function initRenderController(deps) {
       if (!skipFit) viewer.fitToObject(result.root);
       if (!quiet) setStatus("ready", "Ready", false);
 
+      // ✨ Clear error HANYA saat render sukses
+      _lastError = null;
+
       store.dispatch({ type: "SET_LAST_SUCCESS", payload: code });
       store.dispatch({
         type: "SET_LAST_2D_SHAPES",
@@ -148,8 +153,10 @@ export function initRenderController(deps) {
         return;
       }
       if (!quiet) {
+        const formatted = formatError(err, code);
+        _lastError = formatted; // ✨ capture untuk AI Code Fixer
         setStatus("error", "Error", false);
-        log("error", formatError(err, code));
+        log("error", formatted);
         toast("✖ " + (err.message || "Render gagal"));
       }
       if (throwOnError) throw err;
@@ -173,6 +180,7 @@ export function initRenderController(deps) {
       }
       editor.focus();
     } catch (e) {
+      // ❌ JANGAN sentuh _lastError — error format bukan error render
       log("error", "Format gagal: " + e.message);
       toast("✖ Format gagal");
     }
@@ -200,5 +208,6 @@ export function initRenderController(deps) {
     doRender,
     doFormat,
     goToLine,
+    getLastError: () => _lastError, // ✨ untuk AI Code Fixer
   };
 }
