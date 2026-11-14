@@ -81,6 +81,21 @@ export function initViewerTools(viewer) {
     overlay.appendChild(btn);
   }
 
+  /* 3.5 Model Stats toggle */
+  if (overlay) {
+    const btn = document.createElement("button");
+    btn.id = "btnStats";
+    btn.title = "Toggle extended stats (volume, area, berat PLA)";
+    btn.innerHTML = "<i class='fa-solid fa-chart-bar'></i>";
+    btn.addEventListener("click", () => {
+      const on = viewer.toggleExtendedStats();
+      btn.classList.toggle("toggle-on", on);
+      if (on && !viewer.hasModel())
+        toast("⚠ Render model dulu untuk melihat statistik");
+    });
+    overlay.appendChild(btn);
+  }
+
   /* 7. Printability Checker */
   if (overlay) {
     const btn = document.createElement("button");

@@ -1,6 +1,12 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import {
+  computeModelStats,
+  formatVolume,
+  formatArea,
+  formatWeight,
+} from "./model-stats.js";
 
 function disposeObject(obj) {
   if (!obj) return;
@@ -110,6 +116,8 @@ export class Viewer {
     this._lastFpsT = performance.now();
     this._wireframeOn = false;
     this._printabilityOn = false;
+    this._showExtendedStats = false;
+    this._modelStats = null;
 
     // ==========================================
     // 6. INIT LIGHTS (Sekarang aman)
@@ -859,6 +867,10 @@ export class Viewer {
     this._updateSectionIndicator();
     this._refreshDimensionOverlay();
     this._buildSnapCache();
+
+    // hitung statistik model
+    this._modelStats = computeModelStats(this.modelRoot);
+    this._updateStatsDisplay();
   }
 
   clearModel() {
@@ -1286,11 +1298,49 @@ export class Viewer {
     this.controls.update();
 
     if (this._viewInfoEl) {
-      this._viewInfoEl.innerHTML =
-        `<span class="bbox-item"><span class="bbox-key">X</span>${size.x.toFixed(1)}</span>` +
-        `<span class="bbox-item"><span class="bbox-key">Y</span>${size.y.toFixed(1)}</span>` +
-        `<span class="bbox-item"><span class="bbox-key">Z</span>${size.z.toFixed(1)}</span>`;
+      // this._viewInfoEl.innerHTML =
+      //   `<span class="bbox-item"><span class="bbox-key">X</span>${size.x.toFixed(1)}</span>` +
+      //   `<span class="bbox-item"><span class="bbox-key">Y</span>${size.y.toFixed(1)}</span>` +
+      //   `<span class="bbox-item"><span class="bbox-key">Z</span>${size.z.toFixed(1)}</span>`;
+      this._updateStatsDisplay();
     }
+  }
+
+  /* ============================================================
+     Model Stats Overlay
+     ============================================================ */
+  _updateStatsDisplay() {
+    if (!this._viewInfoEl) return;
+    const s = this._modelStats;
+    if (!s || !this.hasModel()) {
+      this._viewInfoEl.innerHTML = "—";
+      return;
+    }
+
+    let html =
+      `<span class="bbox-item"><span class="bbox-key">X</span>${s.size.x.toFixed(1)}</span>` +
+      `<span class="bbox-item"><span class="bbox-key">Y</span>${s.size.y.toFixed(1)}</span>` +
+      `<span class="bbox-item"><span class="bbox-key">Z</span>${s.size.z.toFixed(1)}</span>`;
+
+    if (this._showExtendedStats) {
+      html +=
+        `<span class="bbox-item"><span class="bbox-key">△</span>${s.triangles.toLocaleString("id-ID")}</span>` +
+        `<span class="bbox-item"><span class="bbox-key">VOL</span>${formatVolume(s.volume)}</span>` +
+        `<span class="bbox-item"><span class="bbox-key">AREA</span>${formatArea(s.area)}</span>` +
+        `<span class="bbox-item"><span class="bbox-key">PLA</span>${formatWeight(s.weightGrams)}</span>`;
+    }
+
+    this._viewInfoEl.innerHTML = html;
+  }
+
+  toggleExtendedStats() {
+    this._showExtendedStats = !this._showExtendedStats;
+    this._updateStatsDisplay();
+    return this._showExtendedStats;
+  }
+
+  getModelStats() {
+    return this._modelStats;
   }
 
   setView(preset) {

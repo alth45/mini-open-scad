@@ -4147,3 +4147,34 @@ body.is-animating #btnPreview {
     max-width: 96%;
   }
 }
+
+/* ---------- MODEL STATS OVERLAY ---------- */
+/* Bungkus baris saat extended stats aktif */
+#viewInfo {
+  flex-wrap: wrap;
+  row-gap: 4px;
+  max-width: calc(100% - 40px);
+}
+
+#viewInfo .bbox-item {
+  white-space: nowrap;
+}
+
+/* Tombol toggle stats di overlay */
+#btnStats {
+  font-size: 14px;
+  padding: 5px 9px;
+}
+
+#btnStats.toggle-on {
+  background: rgba(59, 130, 246, 0.25);
+  border-color: var(--accent);
+  color: var(--accent-hi);
+}
+
+/* Light theme */
+[data-theme="light"] #btnStats.toggle-on {
+  background: rgba(37, 99, 235, 0.15);
+  border-color: #2563eb;
+  color: #1d4ed8;
+}
