@@ -3,6 +3,8 @@ import { askFixer } from "../ai/code-fixer.js";
 import { AI_CONFIG } from "../config.js";
 import { log } from "../ui/console.js";
 import { toast } from "../ui/status.js";
+import { diffLines, diffStats, collapseContext } from "../ai/diff.js";
+import { escapeHtml } from "../utils.js";
 
 export function initAIUI(deps) {
   const { editor, tabManager, saveNow, doRender, getLastError } = deps;
@@ -99,7 +101,7 @@ export function initAIUI(deps) {
   /* ---------- Core ---------- */
   async function run({ question, autoFix }) {
     if (busy) return;
-    const code = editor.getValue();
+    const oldCode = editor.getValue();
     const error = autoFix ? getLastError?.() || null : null;
 
     if (autoFix && !error) {
@@ -118,7 +120,7 @@ export function initAIUI(deps) {
 
     try {
       const result = await askFixer(client, {
-        code,
+        code: oldCode,
         error,
         question,
         history: history.slice(-6, -1), // 6 pesan sebelumnya
@@ -127,7 +129,8 @@ export function initAIUI(deps) {
       });
 
       history.push({ role: "assistant", content: result.reply });
-      if (result.proposedCode) appendFixBlock(replyEl, result.proposedCode);
+      if (result.proposedCode)
+        appendFixBlock(replyEl, result.proposedCode, oldCode);
       statusEl.textContent = "";
     } catch (e) {
       if (e.name === "AbortError") return;
@@ -142,22 +145,66 @@ export function initAIUI(deps) {
     }
   }
 
-  function appendFixBlock(afterEl, code) {
+  function appendFixBlock(afterEl, code, baseCode) {
+    const ops = diffLines(baseCode, code);
+    const stats = diffStats(ops);
+    const changed = stats.add > 0 || stats.del > 0;
+    const editorDrift = editor.getValue() !== baseCode;
+
     const wrap = document.createElement("div");
     wrap.className = "ai-fix-block";
+
+    const statsHTML = changed
+      ? `<span class="ai-fix-stats"><span class="add">+${stats.add}</span> <span class="del">−${stats.del}</span></span>`
+      : `<span class="ai-fix-stats no-change">no change</span>`;
+
+    const driftHTML = editorDrift
+      ? `<span class="ai-fix-warn" title="Kode editor telah berubah sejak AI membaca. Apply akan menimpa perubahan tersebut.">⚠</span>`
+      : "";
+
     wrap.innerHTML = `
       <div class="ai-fix-head">
-        <span>🛠 Proposed fix</span>
-        <button class="ai-copy">Copy</button>
-        <button class="ai-apply primary">Apply</button>
+        <span class="ai-fix-label">🛠 Proposed fix</span>
+        ${statsHTML}
+        ${driftHTML}
+        <div class="spacer"></div>
+        ${changed ? `<button class="ai-fix-toggle"></button>` : ""}
+        <button class="ai-fix-copy">Copy</button>
+        <button class="ai-fix-apply primary">Apply</button>
       </div>
-      <pre class="ai-fix-code"></pre>
+      ${changed ? `<div class="ai-fix-diff"></div>` : ""}
     `;
-    wrap.querySelector(".ai-fix-code").textContent = code;
-    afterEl.appendChild(wrap);
-    logEl.scrollTop = logEl.scrollHeight;
 
-    wrap.querySelector(".ai-apply").addEventListener("click", () => {
+    afterEl.appendChild(wrap);
+
+    if (changed) {
+      const diffEl = wrap.querySelector(".ai-fix-diff");
+      const toggleBtn = wrap.querySelector(".ai-fix-toggle");
+      const collapsed = collapseContext(ops, 3);
+      diffEl.innerHTML = buildDiffHTML(collapsed);
+
+      // Auto-expand kalau diff pendek; collapse kalau panjang
+      const autoExpand = collapsed.length <= 20;
+      diffEl.classList.toggle("hidden", !autoExpand);
+      toggleBtn.textContent = autoExpand ? "Hide diff" : "Show diff";
+
+      toggleBtn.addEventListener("click", () => {
+        const hidden = diffEl.classList.toggle("hidden");
+        toggleBtn.textContent = hidden ? "Show diff" : "Hide diff";
+        logEl.scrollTop = logEl.scrollHeight;
+      });
+    }
+
+    wrap.querySelector(".ai-fix-apply").addEventListener("click", () => {
+      const current = editor.getValue();
+      if (current !== baseCode) {
+        const ok = confirm(
+          "Kode editor telah berubah sejak AI membaca.\n\n" +
+            "Apply akan MENIMPA perubahan tersebut dengan fix AI.\n\n" +
+            "Lanjutkan?",
+        );
+        if (!ok) return;
+      }
       editor.setValue(code); // recordHistory=true → bisa undo
       tabManager?.updateActiveSilent({ code });
       saveNow?.();
@@ -165,7 +212,8 @@ export function initAIUI(deps) {
       doRender?.();
       close();
     });
-    wrap.querySelector(".ai-copy").addEventListener("click", async () => {
+
+    wrap.querySelector(".ai-fix-copy").addEventListener("click", async () => {
       try {
         await navigator.clipboard.writeText(code);
         toast("📋 Copied");
@@ -173,6 +221,31 @@ export function initAIUI(deps) {
         toast("Copy gagal");
       }
     });
+
+    logEl.scrollTop = logEl.scrollHeight;
+  }
+
+  /** Render ops[] → HTML string untuk panel diff */
+  function buildDiffHTML(ops) {
+    return ops
+      .map((op) => {
+        if (op.type === "skip") {
+          return `<div class="ai-diff-skip">⋯ ${op.count} baris tidak berubah ⋯</div>`;
+        }
+        const marker = op.type === "add" ? "+" : op.type === "del" ? "−" : " ";
+        const oldNum = op.oldNum ?? "";
+        const newNum = op.newNum ?? "";
+        const text = escapeHtml(op.text) || " ";
+        return (
+          `<div class="ai-diff-line ${op.type}">` +
+          `<span class="ai-diff-num">${oldNum}</span>` +
+          `<span class="ai-diff-num">${newNum}</span>` +
+          `<span class="ai-diff-marker">${marker}</span>` +
+          `<span class="ai-diff-text">${text}</span>` +
+          `</div>`
+        );
+      })
+      .join("");
   }
 
   /* ---------- Events ---------- */
