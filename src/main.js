@@ -19,6 +19,7 @@ import { initShortcuts } from "./app/shortcuts.js";
 import { initViewerTools } from "./app/viewer-tools.js";
 import { initCapture } from "./app/capture.js";
 import { initExportUI } from "./app/export-ui.js";
+import { initSnippetUI } from "./app/snippet-ui.js";
 import { setupEditor } from "./app/editor-setup.js";
 import { setupPreview } from "./app/preview-setup.js";
 import { setupTabs } from "./app/tabs-setup.js";
@@ -174,6 +175,13 @@ initShortcuts({
 });
 initViewerTools(viewer);
 initExportUI({ viewer, editor, tabManager });
+// ✨ Snippet Library — HARUS sebelum initMobileUI
+initSnippetUI({
+  editor,
+  tabManager,
+  saveNow: renderController.saveNow,
+  doRender: renderController.doRender,
+});
 // ✨ AI Code Fixer — harus sebelum initMobileUI
 initAIUI({
   editor,
