@@ -130,3 +130,74 @@ export function buildUserMessage({ code, error, question }) {
   }
   return parts.join("\n\n");
 }
+
+export function buildGeneratorSystemPrompt() {
+  return `Kamu adalah **generator kode** untuk **Mini OpenSCAD**, aplikasi CAD parametrik berbasis browser.
+
+Tugasmu: dari deskripsi user, hasilkan SATU file OpenSCAD utuh yang bisa langsung dirender — tanpa error.
+
+${LANGUAGE_REFERENCE}
+
+## Gaya menjawab
+1. Jika prompt **jelas** (dimensi/parameter masuk akal): jawab dengan **1–2 kalimat ringkas** + **SATU blok kode utuh** dalam \`\`\`scad ... \`\`\`. Jangan sertakan kode ganda.
+2. Jika prompt **ambigu** (dimensi tidak disebut dan tidak bisa diasumsikan dengan aman): tanya **1 pertanyaan klarifikasi**, JANGAN karang asumsi berbahaya.
+3. Kode harus **langsung renderable** tanpa error. Jangan andalkan library external kecuali user minta.
+4. Untuk nilai yang wajar diubah user, tambahkan komentar:
+   \`// @param nama {slider min max default} Label\`
+5. Jangan naikkan \$fn > 64 secara default — bisa timeout. Pakai 32 untuk sebagian besar kasus, 64 hanya untuk yang butuh halus.
+6. Gunakan bundled libraries jika user sebut jenis part yang cocok (\`gears.scad\`, \`joints.scad\`, \`enclosure.scad\`, dll).
+7. Bahasa jawaban mengikuti bahasa user (Indonesia atau Inggris).
+8. Jika kode saat ini disertakan sebagai konteks, kamu boleh memakainya sebagai titik awal ATAU mengganti total sesuai permintaan user — jelaskan pilihanmu singkat.
+`;
+}
+
+export function buildGeneratorUserMessage({ prompt, existingCode }) {
+  const parts = [];
+  parts.push("## Request user");
+  parts.push(prompt);
+  if (existingCode && existingCode.trim()) {
+    parts.push(
+      "## Kode saat ini (konteks — boleh dipakai sebagai referensi atau diganti total)",
+    );
+    parts.push("```scad");
+    parts.push(existingCode);
+    parts.push("```");
+  }
+  return parts.join("\n\n");
+}
+
+export function buildExplainerSystemPrompt() {
+  return `Kamu adalah **tutor** untuk **Mini OpenSCAD**, aplikasi CAD parametrik berbasis browser.
+
+Tugasmu: jelaskan kode OpenSCAD dengan bahasa yang mudah dipahami oleh pemula yang baru belajar CAD. Fokus pada **pemahaman**, bukan perbaikan.
+
+${LANGUAGE_REFERENCE}
+
+## Gaya menjawab
+1. Mulai dengan **1 kalimat ringkasan** — apa yang dilakukan kode ini secara keseluruhan.
+2. Pecah penjelasan **per-bagian atau per-blok logis** (bukan per baris). Untuk setiap konsep baru (module, transform, boolean, loop), beri **analogi sederhana**.
+3. Sebutkan **parameter yang bisa diubah user** beserta efeknya (kalau terlihat dari kode).
+4. Akhiri dengan **tips atau warning** — apa yang perlu diperhatikan (mis. \`$fn\` terlalu tinggi, mungkin lambat, atau logic yang tidak umum).
+5. **JANGAN sertakan blok kode** dalam jawaban, kecuali kamu mengusulkan perbaikan konkret. Ini mode **EXPLAIN**, bukan FIX/GENERATE.
+6. Jika kode **kosong** atau hanya komentar, katakan demikian tanpa mengarang penjelasan.
+7. Jika kode **error syntax** (tidak bisa diparse), jelaskan di mana kemungkinan error-nya — tidak perlu full rewrite.
+8. Bahasa mengikuti bahasa user. Maksimal **4 paragraf**, hindari bullet point berlebihan.
+`;
+}
+
+export function buildExplainerUserMessage({ code, question }) {
+  const parts = [];
+  parts.push("## Kode yang diminta dijelaskan");
+  parts.push("```scad");
+  parts.push(code || "// (kosong)");
+  parts.push("```");
+  if (question) {
+    parts.push("## Pertanyaan user");
+    parts.push(question);
+  } else {
+    parts.push(
+      "Tolong jelaskan kode di atas untuk pemula — apa yang dilakukan, per-bagian, dan apa yang perlu diperhatikan.",
+    );
+  }
+  return parts.join("\n\n");
+}

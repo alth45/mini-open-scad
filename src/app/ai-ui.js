@@ -1,5 +1,5 @@
 import { createTokenHarborClient } from "../ai/tokenharbor-client.js";
-import { askFixer } from "../ai/code-fixer.js";
+import { askFixer, askGenerator, askExplainer } from "../ai/code-fixer.js";
 import { AI_CONFIG } from "../config.js";
 import { log } from "../ui/console.js";
 import { toast } from "../ui/status.js";
@@ -20,7 +20,7 @@ export function initAIUI(deps) {
   modal.innerHTML = `
     <div class="modal ai-modal">
       <div class="modal-title">
-        <span><i class="fa-solid fa-robot"></i> AI Code Fixer <small>${AI_CONFIG.model}</small></span>
+        <span>🤖 AI Assistant <small>${AI_CONFIG.model}</small></span>
         <div style="display:flex;gap:6px">
           <button id="aiSettingsBtn" class="modal-x" title="API key settings">⚙</button>
           <button id="aiClose" class="modal-x">✕</button>
@@ -40,10 +40,23 @@ export function initAIUI(deps) {
           Key disimpan lokal di browser (localStorage) — jangan pakai di komputer publik.
         </p>
       </div>
+      <div class="ai-modes">
+        <button class="ai-mode active" data-mode="fix">🔧 Fix Code</button>
+        <button class="ai-mode" data-mode="generate">✨ Generate Code</button>
+        <button class="ai-mode" data-mode="explain">📖 Explain Code</button>
+      </div>
       <div id="aiLog" class="ai-log"></div>
       <div class="ai-composer">
         <textarea id="aiInput" rows="2"
           placeholder="Jelaskan yang ingin diperbaiki, atau kosongkan untuk auto-fix error…"></textarea>
+        <div id="aiSuggestions" class="ai-suggestions hidden">
+          <button class="ai-chip" data-prompt="Gear 20 gigi dengan hub 5mm, thickness 8mm, dan $fn=64">⚙ Spur gear</button>
+          <button class="ai-chip" data-prompt="Phone stand adjustable dengan slot USB-C di belakang">📱 Phone stand</button>
+          <button class="ai-chip" data-prompt="Parametric box dengan snap-fit lid, ukuran dalam 60×40×25mm">📦 Snap box</button>
+          <button class="ai-chip" data-prompt="Vase spiral sederhana tinggi 100mm diameter 40mm dengan wall 1.5mm">🏺 Spiral vase</button>
+          <button class="ai-chip" data-prompt="Pegboard hook untuk pegboard 1 inch spacing, load capacity kuat">🪝 Pegboard hook</button>
+          <button class="ai-chip" data-prompt="Cable clip diameter 5mm dengan lubang sekrup M3 untuk mounting">🔌 Cable clip</button>
+        </div>
         <div class="ai-actions">
           <button id="aiAutoFix" title="Kirim kode + error terakhir ke AI">🛠 Fix error</button>
           <button id="aiSend" class="primary">➤ Send</button>
@@ -62,6 +75,9 @@ export function initAIUI(deps) {
   const keyInput = $("#aiKeyInput");
   const keyStatus = $("#aiKeyStatus");
 
+  const suggestionsEl = $("#aiSuggestions");
+  let currentMode = "fix"; // "fix" | "generate"
+
   const history = []; // [{role, content}]
   let busy = false;
   let abortController = null;
@@ -73,8 +89,10 @@ export function initAIUI(deps) {
     if (!localStorage.getItem(AI_CONFIG.keyStorage)) {
       settingsEl.classList.remove("hidden");
     }
+    applyModeUI(); // sync UI dengan currentMode terakhir
     inputEl.focus();
   }
+
   function close() {
     abortController?.abort();
     abortController = null;
@@ -99,38 +117,73 @@ export function initAIUI(deps) {
   }
 
   /* ---------- Core ---------- */
-  async function run({ question, autoFix }) {
+  async function run({ question, autoFix, mode = currentMode }) {
     if (busy) return;
     const oldCode = editor.getValue();
-    const error = autoFix ? getLastError?.() || null : null;
+    const error = mode === "fix" && autoFix ? getLastError?.() || null : null;
 
-    if (autoFix && !error) {
+    if (mode === "fix" && autoFix && !error) {
       toast("Tidak ada error terakhir — coba Render dulu.");
       return;
     }
+    if (mode === "generate" && !question?.trim()) {
+      toast("Tulis prompt dulu, atau klik salah satu saran.");
+      return;
+    }
+
+    if (mode === "explain" && !oldCode.trim()) {
+      toast("Tidak ada kode untuk dijelaskan.");
+      return;
+    }
+
     busy = true;
     abortController = new AbortController();
-    statusEl.textContent = "AI sedang berpikir…";
+    statusEl.textContent =
+      mode === "generate" ? "AI sedang menulis kode…" : "AI sedang berpikir…";
 
-    const userLabel = question || "Perbaiki error render terakhir.";
+    const userLabel =
+      question ||
+      (mode === "fix" ? "Perbaiki error render terakhir." : "(kosong)");
     addMessage("user", userLabel);
     history.push({ role: "user", content: userLabel });
 
     const replyEl = addMessage("assistant", "");
 
     try {
-      const result = await askFixer(client, {
-        code: oldCode,
-        error,
-        question,
-        history: history.slice(-6, -1), // 6 pesan sebelumnya
-        onToken: (chunk) => appendStream(replyEl, chunk),
-        signal: abortController.signal,
-      });
+      const result =
+        mode === "explain"
+          ? await askExplainer(client, {
+              code: oldCode,
+              question,
+              history: history.slice(-6, -1),
+              onToken: (chunk) => appendStream(replyEl, chunk),
+              signal: abortController.signal,
+            })
+          : mode === "generate"
+            ? await askGenerator(client, {
+                prompt: question,
+                existingCode: oldCode,
+                history: history.slice(-6, -1),
+                onToken: (chunk) => appendStream(replyEl, chunk),
+                signal: abortController.signal,
+              })
+            : await askFixer(client, {
+                code: oldCode,
+                error,
+                question,
+                history: history.slice(-6, -1),
+                onToken: (chunk) => appendStream(replyEl, chunk),
+                signal: abortController.signal,
+              });
 
       history.push({ role: "assistant", content: result.reply });
-      if (result.proposedCode)
-        appendFixBlock(replyEl, result.proposedCode, oldCode);
+      // Explain mode: JANGAN tampilkan fix panel (murni edukasi)
+      if (mode !== "explain" && result.proposedCode) {
+        appendFixBlock(replyEl, result.proposedCode, oldCode, {
+          generated: mode === "generate",
+          prompt: question || "",
+        });
+      }
       statusEl.textContent = "";
     } catch (e) {
       if (e.name === "AbortError") return;
@@ -145,7 +198,8 @@ export function initAIUI(deps) {
     }
   }
 
-  function appendFixBlock(afterEl, code, baseCode) {
+  function appendFixBlock(afterEl, code, baseCode, options = {}) {
+    const { generated = false, prompt = "" } = options;
     const ops = diffLines(baseCode, code);
     const stats = diffStats(ops);
     const changed = stats.add > 0 || stats.del > 0;
@@ -162,15 +216,18 @@ export function initAIUI(deps) {
       ? `<span class="ai-fix-warn" title="Kode editor telah berubah sejak AI membaca. Apply akan menimpa perubahan tersebut.">⚠</span>`
       : "";
 
+    const label = generated ? "✨ Generated code" : "🛠 Proposed fix";
+
     wrap.innerHTML = `
       <div class="ai-fix-head">
-        <span class="ai-fix-label">🛠 Proposed fix</span>
+        <span class="ai-fix-label">${label}</span>
         ${statsHTML}
         ${driftHTML}
         <div class="spacer"></div>
         ${changed ? `<button class="ai-fix-toggle"></button>` : ""}
         <button class="ai-fix-copy">Copy</button>
-        <button class="ai-fix-apply primary">Apply</button>
+        ${generated ? `<button class="ai-fix-newtab primary">New tab</button>` : ""}
+        <button class="ai-fix-apply ${generated ? "" : "primary"}">${generated ? "Replace current" : "Apply"}</button>
       </div>
       ${changed ? `<div class="ai-fix-diff"></div>` : ""}
     `;
@@ -183,7 +240,6 @@ export function initAIUI(deps) {
       const collapsed = collapseContext(ops, 3);
       diffEl.innerHTML = buildDiffHTML(collapsed);
 
-      // Auto-expand kalau diff pendek; collapse kalau panjang
       const autoExpand = collapsed.length <= 20;
       diffEl.classList.toggle("hidden", !autoExpand);
       toggleBtn.textContent = autoExpand ? "Hide diff" : "Show diff";
@@ -195,12 +251,34 @@ export function initAIUI(deps) {
       });
     }
 
+    // Action: New tab (jika generated)
+    if (generated) {
+      const newTabBtn = wrap.querySelector(".ai-fix-newtab");
+      newTabBtn.addEventListener("click", () => {
+        const shortName = (prompt || "AI Code")
+          .slice(0, 30)
+          .replace(/\s+/g, " ")
+          .trim();
+        const tabName = `✨ ${shortName || "AI Code"}`;
+        try {
+          const tab = createTab(tabName, code);
+          tabManager.add(tab); // triggers setActive → editor.load + doRender
+          saveNow?.();
+          toast("✓ Tab baru dibuat");
+          close();
+        } catch (e) {
+          toast("✖ Gagal buat tab: " + e.message);
+        }
+      });
+    }
+
+    // Action: Apply / Replace current
     wrap.querySelector(".ai-fix-apply").addEventListener("click", () => {
       const current = editor.getValue();
       if (current !== baseCode) {
         const ok = confirm(
           "Kode editor telah berubah sejak AI membaca.\n\n" +
-            "Apply akan MENIMPA perubahan tersebut dengan fix AI.\n\n" +
+            "Lanjutkan akan MENIMPA perubahan tersebut dengan hasil AI.\n\n" +
             "Lanjutkan?",
         );
         if (!ok) return;
@@ -274,14 +352,47 @@ export function initAIUI(deps) {
     toast("Key dihapus");
   });
 
+  // ---- Mode switcher ----
+  modal.querySelectorAll(".ai-mode").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const mode = btn.dataset.mode;
+      if (mode === currentMode) return;
+      currentMode = mode;
+      modal
+        .querySelectorAll(".ai-mode")
+        .forEach((b) => b.classList.toggle("active", b === btn));
+      applyModeUI();
+    });
+  });
+
+  function applyModeUI() {
+    const isGen = currentMode === "generate";
+    const isExplain = currentMode === "explain";
+    inputEl.placeholder = isGen
+      ? "Deskripsikan part yang ingin dibuat… (mis. 'gear 20 gigi hub 5mm')"
+      : isExplain
+        ? "Tanya apa saja tentang kode ini… (kosongkan untuk penjelasan umum)"
+        : "Jelaskan yang ingin diperbaiki, atau kosongkan untuk auto-fix error…";
+    // Fix error button hanya muncul di mode fix
+    $("#aiAutoFix").classList.toggle("hidden", currentMode !== "fix");
+    suggestionsEl.classList.toggle("hidden", !isGen);
+    const sendLabel = isGen
+      ? "✨ Generate"
+      : isExplain
+        ? "📖 Explain"
+        : "➤ Send";
+    $("#aiSend").textContent = sendLabel;
+    $("#aiSend").classList.add("primary");
+  }
+
   $("#aiSend").addEventListener("click", () => {
     const q = inputEl.value.trim();
     inputEl.value = "";
-    run({ question: q || null, autoFix: false });
+    run({ question: q || null, autoFix: false, mode: currentMode });
   });
   $("#aiAutoFix").addEventListener("click", () => {
     inputEl.value = "";
-    run({ question: null, autoFix: true });
+    run({ question: null, autoFix: true, mode: "fix" });
   });
   inputEl.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -289,6 +400,158 @@ export function initAIUI(deps) {
       $("#aiSend").click();
     }
   });
+
+  // ---- Suggestion chips (generate mode) ----
+  suggestionsEl.querySelectorAll(".ai-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const p = chip.dataset.prompt || chip.textContent;
+      inputEl.value = p;
+      run({ question: p, autoFix: false, mode: "generate" });
+      inputEl.value = "";
+    });
+  });
+
+  // ============================================================
+  // 📖 Explain Code — selection-aware
+  // ============================================================
+
+  function getEditorEl() {
+    return document.getElementById("editor");
+  }
+
+  function explainSelection(customQuestion = null) {
+    if (busy) {
+      toast("AI sedang sibuk — tunggu dulu.");
+      return;
+    }
+    const ta = getEditorEl();
+    if (!ta) return;
+
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const sel = ta.value.slice(start, end).trim();
+
+    let code = sel;
+    if (!code) {
+      code = ta.value;
+      if (!code.trim()) {
+        toast("Editor kosong — tidak ada yang bisa dijelaskan.");
+        return;
+      }
+      const lines = code.split("\n").length;
+      if (lines > 200) {
+        const ok = confirm(
+          `Tidak ada seleksi. Seluruh kode (${lines} baris) akan dijelaskan — mungkin butuh waktu lama.\n\n` +
+            `Tip: select beberapa baris dulu untuk penjelasan yang lebih fokus.\n\n` +
+            `Lanjutkan?`,
+        );
+        if (!ok) return;
+      }
+    }
+
+    // Force explain mode
+    currentMode = "explain";
+    modal
+      .querySelectorAll(".ai-mode")
+      .forEach((b) =>
+        b.classList.toggle("active", b.dataset.mode === "explain"),
+      );
+    open(); // idempotent — juga panggil applyModeUI()
+
+    run({ question: customQuestion, mode: "explain", codeOverride: code });
+  }
+
+  // ---- Floating selection toolbar ----
+  (function setupSelectionToolbar() {
+    const ta = getEditorEl();
+    if (!ta) return;
+
+    const bar = document.createElement("div");
+    bar.className = "ai-selection-toolbar";
+    bar.innerHTML = `<button class="ai-sel-btn" title="Explain selection (Ctrl+Shift+E)">📖 Explain</button>`;
+    document.body.appendChild(bar);
+
+    let cwCache = 0;
+    function measureCharWidth() {
+      if (cwCache) return cwCache;
+      const style = getComputedStyle(ta);
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      ctx.font = `${style.fontSize} ${style.fontFamily}`;
+      cwCache = ctx.measureText("M").width || 8;
+      return cwCache;
+    }
+
+    function update() {
+      const start = ta.selectionStart;
+      const end = ta.selectionEnd;
+      const hasSel =
+        end > start && ta.value.slice(start, end).trim().length > 0;
+
+      if (!hasSel) {
+        bar.classList.remove("visible");
+        return;
+      }
+
+      const style = getComputedStyle(ta);
+      const lineHeight = parseFloat(style.lineHeight) || 20;
+      const padTop = parseFloat(style.paddingTop) || 10;
+      const padLeft = parseFloat(style.paddingLeft) || 12;
+      const cw = measureCharWidth();
+
+      const before = ta.value.slice(0, end);
+      const lines = before.split("\n");
+      const lineIdx = lines.length - 1;
+      const col = lines[lineIdx].length;
+
+      const rect = ta.getBoundingClientRect();
+      const x = rect.left + padLeft + col * cw - ta.scrollLeft;
+      const y = rect.top + padTop + lineIdx * lineHeight - ta.scrollTop;
+
+      const tw = bar.offsetWidth || 110;
+      const th = bar.offsetHeight || 30;
+      let px = x + 6;
+      let py = y + lineHeight + 4;
+      if (px + tw > window.innerWidth - 8) px = window.innerWidth - tw - 8;
+      if (px < 8) px = 8;
+      if (py + th > window.innerHeight - 8) py = y - th - 4;
+      if (py < 8) py = 8;
+
+      bar.style.left = px + "px";
+      bar.style.top = py + "px";
+      bar.classList.add("visible");
+    }
+
+    ta.addEventListener("select", update);
+    ta.addEventListener("mouseup", () => setTimeout(update, 10));
+    ta.addEventListener("keyup", () => setTimeout(update, 10));
+    ta.addEventListener("scroll", update);
+    ta.addEventListener("blur", () => {
+      setTimeout(() => {
+        if (document.activeElement !== ta) bar.classList.remove("visible");
+      }, 120);
+    });
+
+    bar.querySelector(".ai-sel-btn").addEventListener("mousedown", (e) => {
+      e.preventDefault(); // jangan hilangkan selection
+      bar.classList.remove("visible");
+      explainSelection();
+    });
+  })();
+
+  // ---- Keyboard shortcut: Ctrl+Shift+E ----
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.shiftKey && !e.altKey && (e.key === "e" || e.key === "E")) {
+        e.preventDefault();
+        e.stopPropagation();
+        explainSelection();
+      }
+    },
+    true, // CAPTURE — biar tidak kalah oleh handler lain
+  );
 
   /* ---------- Button di topbar ---------- */
   const topbarRight = document.getElementById("topbar-right");
@@ -303,5 +566,5 @@ export function initAIUI(deps) {
     topbarRight.insertBefore(btn, status);
   }
 
-  return { open, close };
+  return { open, close, explainSelection };
 }

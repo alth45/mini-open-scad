@@ -4958,3 +4958,191 @@ body.is-animating #btnPreview {
     font-size: 11px;
   }
 }
+
+/* ---------- AI MODES (FIX / GENERATE) ---------- */
+.ai-modes {
+  display: flex;
+  gap: 2px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-2);
+  flex-shrink: 0;
+}
+.ai-mode {
+  padding: 5px 14px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: 0.15s;
+}
+.ai-mode:hover {
+  background: var(--btn-hover);
+  color: var(--text);
+}
+.ai-mode.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* ---------- AI SUGGESTION CHIPS ---------- */
+.ai-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0 0;
+}
+.ai-suggestions.hidden {
+  display: none;
+}
+.ai-chip {
+  padding: 4px 10px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 14px;
+  color: var(--accent-hi);
+  font-size: 11.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: 0.15s;
+}
+.ai-chip:hover {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: var(--accent);
+  color: #fff;
+  transform: translateY(-1px);
+}
+.ai-chip:active {
+  transform: translateY(0);
+}
+
+/* ---------- AI FIX ACTIONS EXTRA ---------- */
+.ai-fix-newtab {
+  padding: 3px 10px;
+  font-size: 11px;
+}
+.ai-fix-apply:not(.primary) {
+  background: var(--btn-bg);
+  border: 1px solid var(--border-2);
+  color: var(--text);
+}
+.ai-fix-apply:not(.primary):hover {
+  background: var(--btn-hover);
+}
+#aiAutoFix.hidden {
+  display: none;
+}
+
+/* Light theme */
+[data-theme="light"] .ai-mode:hover {
+  background: #f0f0f3;
+}
+[data-theme="light"] .ai-mode.active {
+  background: #2563eb;
+}
+[data-theme="light"] .ai-chip {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.3);
+  color: #2563eb;
+}
+[data-theme="light"] .ai-chip:hover {
+  background: rgba(37, 99, 235, 0.18);
+  color: #1e40af;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .ai-modes {
+    padding: 4px 12px;
+  }
+  .ai-mode {
+    flex: 1;
+    padding: 5px 8px;
+    font-size: 11.5px;
+    text-align: center;
+  }
+  .ai-chip {
+    font-size: 11px;
+    padding: 4px 9px;
+  }
+  .ai-fix-newtab,
+  .ai-fix-apply {
+    padding: 4px 8px;
+    font-size: 10.5px;
+  }
+}
+
+/* ---------- AI EXPLAIN — FLOATING SELECTION TOOLBAR ---------- */
+.ai-selection-toolbar {
+  position: fixed;
+  z-index: 200;
+  background: var(--panel);
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+  padding: 3px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+  pointer-events: none;
+}
+.ai-selection-toolbar.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.ai-sel-btn {
+  padding: 4px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ai-sel-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--accent-hi);
+}
+.ai-sel-btn:active {
+  transform: scale(0.97);
+}
+
+/* ---------- AI MODE TAB — 3 mode (auto-fit flex) ---------- */
+/* ai-modes sudah flex, tidak perlu ubah. Beri sedikit ruang ekstra di mobile */
+@media (max-width: 768px) {
+  .ai-modes {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .ai-mode {
+    flex: 0 0 auto;
+    min-width: auto;
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+}
+
+/* Light theme */
+[data-theme="light"] .ai-selection-toolbar {
+  background: #fff;
+  border-color: #c6c6ce;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+[data-theme="light"] .ai-sel-btn:hover {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}

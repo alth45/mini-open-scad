@@ -1,4 +1,11 @@
-import { buildSystemPrompt, buildUserMessage } from "./ai-context.js";
+import {
+  buildSystemPrompt,
+  buildUserMessage,
+  buildGeneratorSystemPrompt,
+  buildGeneratorUserMessage,
+  buildExplainerSystemPrompt,
+  buildExplainerUserMessage,
+} from "./ai-context.js";
 
 // Tangkap ```scad, ```openscad, atau ``` (bare)
 const SCAD_BLOCK_RE = /```(?:scad|openscad)?\s*\n([\s\S]*?)```/g;
@@ -34,4 +41,55 @@ export async function askFixer(
   });
 
   return { reply, proposedCode: extractScadBlock(reply) };
+}
+
+/**
+ * Generate kode dari deskripsi (bukan fix error).
+ * @returns {Promise<{ reply: string, proposedCode: string|null }>}
+ */
+export async function askGenerator(
+  client,
+  { prompt, existingCode, history, onToken, signal },
+) {
+  const messages = [
+    { role: "system", content: buildGeneratorSystemPrompt() },
+    ...(history || []),
+    {
+      role: "user",
+      content: buildGeneratorUserMessage({ prompt, existingCode }),
+    },
+  ];
+
+  const reply = await client.chat(messages, {
+    stream: true,
+    onToken,
+    signal,
+    maxTokens: 8192,
+  });
+
+  return { reply, proposedCode: extractScadBlock(reply) };
+}
+
+/**
+ * Explain kode ke user dengan bahasa awam (mode edukasi).
+ * @returns {Promise<{ reply: string }>}  — tidak mengekstrak code block
+ */
+export async function askExplainer(
+  client,
+  { code, question, history, onToken, signal },
+) {
+  const messages = [
+    { role: "system", content: buildExplainerSystemPrompt() },
+    ...(history || []),
+    { role: "user", content: buildExplainerUserMessage({ code, question }) },
+  ];
+
+  const reply = await client.chat(messages, {
+    stream: true,
+    onToken,
+    signal,
+    maxTokens: 4096,
+  });
+
+  return { reply };
 }
