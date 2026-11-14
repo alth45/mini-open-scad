@@ -38,7 +38,7 @@ const SHORTCUTS = {
   ]
 };
 
-const SYNTAX = [
+export const SYNTAX = [
   {
     title: 'Primitives 3D',
     items: [

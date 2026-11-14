@@ -1,6 +1,7 @@
 import { createEditor } from "../ui/editor.js";
 import { createFindReplace } from "../ui/find-replace.js";
 import { initErrorBoundary } from "./error-boundary.js";
+import { createAutocomplete } from "../ui/autocomplete.js";
 import { log } from "../ui/console.js";
 import { toast, setStatus } from "../ui/status.js";
 import { formatError } from "../utils.js";
@@ -53,7 +54,13 @@ export function setupEditor(deps) {
     findMatchesEl: document.getElementById("findMatches"),
     containerEl: document.getElementById("codeArea"),
   });
+
   editor.onValueChange(() => findReplace.refresh());
 
-  return { editor, findReplace };
+  // ✨ Autocomplete untuk keywords, modules, functions
+  const autocomplete = createAutocomplete({
+    editorEl: document.getElementById("editor"),
+  });
+
+  return { editor, findReplace, autocomplete };
 }
