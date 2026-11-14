@@ -50,9 +50,10 @@ function setupMobileMore() {
     "btnGif",
     "btnFiles",
     "btnProfiler",
+    "btnOutline", 
     "btnTheme",
     "btnFullscreen",
-    "btnAI", 
+    "btnAI",
   ];
 
   // === Buat tombol More (⋮) ===

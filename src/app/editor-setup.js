@@ -1,6 +1,7 @@
 import { createEditor } from "../ui/editor.js";
 import { createFindReplace } from "../ui/find-replace.js";
 import { initErrorBoundary } from "./error-boundary.js";
+import { createCodeOutline } from "../ui/code-outline.js";
 import { createAutocomplete } from "../ui/autocomplete.js";
 import { log } from "../ui/console.js";
 import { toast, setStatus } from "../ui/status.js";
@@ -57,10 +58,12 @@ export function setupEditor(deps) {
 
   editor.onValueChange(() => findReplace.refresh());
 
-  // ✨ Autocomplete untuk keywords, modules, functions
+  //  Autocomplete untuk keywords, modules, functions
   const autocomplete = createAutocomplete({
     editorEl: document.getElementById("editor"),
   });
 
-  return { editor, findReplace, autocomplete };
+  //  Code outline (symbol panel) — DOM dibuat dinamis oleh module
+  const codeOutline = createCodeOutline({ editor });
+  return { editor, findReplace, autocomplete, codeOutline };
 }
