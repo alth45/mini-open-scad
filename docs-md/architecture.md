@@ -146,8 +146,8 @@ Layer **evaluator** tidak meng-`import` UI module — ketergantungan satu arah.
 
 ```mermaid
 flowchart LR
-    UI["🖥️ UI"] -->|"source code (string)"| EVAL["⚙️ Evaluator"]
-    EVAL -->|"model data (pure)"| MODEL["📦 Model"]
+    UI["🖥️ UI"] -->|"source code as string"| EVAL["⚙️ Evaluator"]
+    EVAL -->|"model data pure"| MODEL["📦 Model"]
     MODEL -.->|"❌ tidak pernah di-import balik"| UI
     style UI fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
     style EVAL fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
