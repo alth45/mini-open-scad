@@ -435,24 +435,24 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    E["📝 editor textarea"] -->|"input event"| AC["⌨️ autocomplete.js"]
-    E -->|"input event (300ms debounce)"| CO["🗂️ code-outline.js"]
-    E -->|"Ctrl+Shift+E"| AI["🤖 ai-ui.js"]
+    ED["📝 editor textarea"] -->|"input event"| AC["⌨️ autocomplete.js"]
+    ED -->|"input debounced 300 ms"| CO["🗂️ code-outline.js"]
+    ED -->|"Ctrl Shift E"| AI["🤖 ai-ui.js"]
 
-    SYNTAX[("SYNTAX<br/>(cheatsheet.js)")]
-    PARSER[("Parser + AST cache<br/>(parser.js)")]
-    PARAMS[("parseParams()<br/>(core/params.js)")]
+    SYNTAX[("SYNTAX<br/>cheatsheet.js")]
+    PARSER[("Parser + AST cache<br/>parser.js")]
+    PARAMS[("parseParams<br/>core/params.js")]
 
     SYNTAX -.-> AC
     SYNTAX -.-> CO
     PARSER -.-> CO
     PARAMS -.-> CO
 
-    AC -->|"Tab/Enter"| E
-    CO -->|"klik item"| E
-    AI -->|"Apply"| E
+    AC -->|"Tab or Enter"| ED
+    CO -->|"klik item"| ED
+    AI -->|"Apply"| ED
 
-    style E fill:#e3f2fd,stroke:#1976d2,color:#000
+    style ED fill:#e3f2fd,stroke:#1976d2,color:#000
     style AC fill:#fff3e0,stroke:#f57c00,color:#000
     style CO fill:#fff3e0,stroke:#f57c00,color:#000
     style AI fill:#f3e5f5,stroke:#8e24aa,color:#000
