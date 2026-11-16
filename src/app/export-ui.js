@@ -19,8 +19,45 @@ export function initExportUI(deps) {
 
   async function handleExport(format) {
     if (format === "scad") {
-      if (typeof window.exportScad === "function") window.exportScad();
-      else toast("⚠ SCAD export tidak tersedia");
+      try {
+        const code = editor?.getValue?.() || "";
+        if (!code.trim()) {
+          toast("⚠ Editor kosong — tidak ada yang bisa diexport");
+          return;
+        }
+
+        // Prepended comment: param values saat export (untuk reproducibility)
+        const currentParams = state?.paramValues || {};
+        const paramKeys = Object.keys(currentParams);
+        let header = "";
+        if (paramKeys.length > 0) {
+          header = "// Exported from Mini OpenSCAD\n";
+          header += "// Param values at export time:\n";
+          for (const k of paramKeys) {
+            const v = currentParams[k];
+            const vStr =
+              typeof v === "string" ? `"${v.replace(/"/g, '\\"')}"` : String(v);
+            header += `//   ${k} = ${vStr};\n`;
+          }
+          header += "\n";
+        }
+
+        const tabName = tabManager?.active?.name || "model";
+        const safeName =
+          tabName.replace(/[^\w-]+/g, "_").slice(0, 40) || "model";
+        const fileName = `${safeName}_${timestampForFile()}.scad`;
+
+        const blob = new Blob([header + code], { type: "text/x-scad" });
+        downloadBlob(blob, fileName);
+        log(
+          "ok",
+          `Export SCAD: ${fileName} (${(blob.size / 1024).toFixed(1)} KB)`,
+        );
+        toast("⬇ SCAD saved");
+      } catch (e) {
+        log("error", "SCAD export gagal: " + e.message);
+        toast("✖ SCAD export gagal");
+      }
       return;
     }
     // --- EXPORT 2D (SVG & DXF) ---
