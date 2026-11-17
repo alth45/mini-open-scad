@@ -12,12 +12,17 @@ import { formatError } from "../utils.js";
 import { saveTabs } from "../storage.js";
 import { profiler } from "../profiler.js";
 
+import { backupTab } from "../files/cloud-storage.js";
+import { CLOUD_CONFIG } from "../config.js";
+
 export function initRenderController(deps) {
   const { editor, viewer, workerClient, tabManager, paramsPanel, btnParams } =
     deps;
   let saveTimer = null;
   let autoRenderTimer = null;
   let _lastError = null; // ✨ state error terakhir untuk AI Code Fixer
+  let _cloudBackupTimer = null;
+  let _lastBackedUpCode = null;
 
   function refreshParams() {
     const params = parseParams(editor.getValue());
@@ -36,6 +41,32 @@ export function initRenderController(deps) {
         tabManager.activeId,
         store.getState().previewMode,
       );
+
+    // ✨ Cloudinary backup (debounced, di background)
+    const activeTab = tabManager?.active;
+    if (
+      activeTab &&
+      CLOUD_CONFIG.cloudName !== "GANTI_DENGAN_CLOUD_NAME_ANDA"
+    ) {
+      clearTimeout(_cloudBackupTimer);
+      _cloudBackupTimer = setTimeout(async () => {
+        const tab = tabManager.active;
+        if (!tab || tab.code === _lastBackedUpCode) return;
+        _lastBackedUpCode = tab.code;
+        try {
+          const entry = await backupTab(tab);
+          if (entry) {
+            log(
+              "info",
+              `☁ Backup uploaded (${(entry.size / 1024).toFixed(1)} KB)`,
+            );
+          }
+        } catch (e) {
+          console.warn("[cloud] backup failed:", e);
+          // Tidak toast — backup adalah background, jangan ganggu user
+        }
+      }, CLOUD_CONFIG.autoBackupDelayMs);
+    }
   }
 
   function scheduleSave() {

@@ -100,3 +100,11 @@ export const AI_CONFIG = {
   keyStorage: "mini-openscad-tokenharbor-key",
   maxTokens: 8192,
 };
+
+export const CLOUD_CONFIG = {
+  cloudName: "ptsntzs6",
+  uploadPreset: "mini_openscad_backup",
+  folder: "mini-openscad",
+  autoBackupDelayMs: 10000, // debounce 10 detik setelah edit terakhir
+  maxBackupsPerTab: 20,
+};

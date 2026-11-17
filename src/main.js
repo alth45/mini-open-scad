@@ -29,6 +29,8 @@ import { initPWA } from "./app/pwa.js";
 import { toast } from "./ui/status.js";
 import { loadBundledLibraries } from "./files/bundled-libs.js";
 import { initAIUI } from "./app/ai-ui.js";
+
+import { initCloudBackupUI } from "./app/cloud-backup-ui.js";
 /* ============================================================
    Core Initialization
    ============================================================ */
@@ -175,6 +177,12 @@ initShortcuts({
 });
 initViewerTools(viewer);
 initExportUI({ viewer, editor, tabManager });
+initCloudBackupUI({
+  tabManager,
+  editor,
+  saveNow: renderController.saveNow,
+  doRender: renderController.doRender,
+});
 // ✨ Snippet Library — HARUS sebelum initMobileUI
 initSnippetUI({
   editor,

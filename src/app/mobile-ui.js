@@ -43,7 +43,7 @@ function setupMobileMore() {
     "btnFormat",
     "exportDropdown",
     "presetDropdown",
-    "btnSnippets", 
+    "btnSnippets",
     "btnClear",
     "btnShare",
     "btnSaveProject",
@@ -55,6 +55,7 @@ function setupMobileMore() {
     "btnTheme",
     "btnFullscreen",
     "btnAI",
+    "btnCloudBackup",
   ];
 
   // === Buat tombol More (⋮) ===
