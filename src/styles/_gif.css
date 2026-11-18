@@ -1,0 +1,57 @@
+.gif-option {
+  margin-bottom: 14px;
+}
+
+.gif-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.gif-quality-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.gif-quality-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 3px 0;
+}
+
+.gif-quality-group input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+.gif-progress-wrap {
+  margin-top: 14px;
+}
+.gif-progress-wrap.hidden {
+  display: none;
+}
+
+.gif-progress-bar {
+  height: 6px;
+  background: #1a1a1a;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.gif-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-hi));
+  transition: width 0.12s linear;
+}
+
+.gif-status {
+  margin-top: 6px;
+  font: 11px var(--mono);
+  color: var(--muted);
+  text-align: center;
+}

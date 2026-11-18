@@ -1,0 +1,128 @@
+#editorWrap {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+  position: relative;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+#gutter {
+  flex: 0 0 auto;
+  width: 56px;
+  padding: 10px 0 10px 0;
+  font: 13px/1.55 var(--mono);
+  color: var(--muted-faint);
+  background: var(--code-bg);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+  user-select: none;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.gutter-line {
+  display: flex;
+  align-items: center;
+  height: 20.15px;
+  line-height: 20.15px;
+}
+
+.gutter-fold {
+  flex: 0 0 14px;
+  text-align: center;
+  font-size: 10px;
+  color: transparent;
+  cursor: default;
+  user-select: none;
+  line-height: 20.15px;
+}
+
+.gutter-fold.can-fold {
+  color: var(--muted-faint);
+  cursor: pointer;
+}
+.gutter-fold.can-fold:hover {
+  color: var(--text);
+}
+.gutter-fold.folded {
+  color: var(--accent-hi);
+}
+
+.gutter-num {
+  flex: 1 1 auto;
+  text-align: right;
+  padding-right: 8px;
+}
+
+#codeArea {
+  flex: 1 1 auto;
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+}
+
+#highlight,
+#findMatches,
+#editor {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 10px 12px;
+  font: 13px/1.55 var(--mono);
+  tab-size: 2;
+  letter-spacing: 0;
+  border: 0;
+  outline: none;
+  white-space: pre;
+  overflow: hidden;
+  word-wrap: normal;
+  overflow-wrap: normal;
+}
+
+#highlight {
+  color: var(--text);
+  pointer-events: none;
+  z-index: 1;
+}
+#findMatches {
+  color: transparent;
+  pointer-events: none;
+  z-index: 2;
+}
+
+#editor {
+  background: transparent;
+  color: transparent;
+  caret-color: #fff;
+  z-index: 3;
+  resize: none;
+  overflow: auto;
+}
+
+#editor::selection {
+  background: rgba(59, 130, 246, 0.35);
+  color: transparent;
+}
+
+/* Syntax colors */
+.tok-com {
+  color: #6a9955;
+  font-style: italic;
+}
+.tok-str {
+  color: #ce9178;
+}
+.tok-num {
+  color: #b5cea8;
+}
+.tok-kw {
+  color: #569cd6;
+  font-weight: 600;
+}
+.tok-spl {
+  color: #dcdcaa;
+}
+.tok-mod {
+  color: #c586c0;
+}

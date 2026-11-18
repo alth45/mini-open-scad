@@ -44,7 +44,7 @@ export function initCloudBackupUI(deps) {
        <div class="cloud-restore-url">
             <label>Restore dari URL Cloudinary (paste <code>.scad</code> URL):</label>
             <div style="display:flex;gap:6px">
-                <input id="cloudRestoreUrl" type="text" placeholder="https://res.cloudinary.com/…/file.scad" />
+                <input id="cloudRestoreUrl" type="text" placeholder="https://res.cloudinary.com/…/file.json" />
                 <button id="cloudRestoreBtn">Restore</button>
             </div>
         </div>
@@ -76,20 +76,24 @@ export function initCloudBackupUI(deps) {
     }
 
     $("#cloudList").innerHTML = history
-      .map(
-        (e, i) => `
+      .map((e, i) => {
+        const badge = e.compressed
+          ? ' <span class="cloud-badge" title="Compressed (gzip)">🗜️</span>'
+          : "";
+        const sizeStr = `${(e.size / 1024).toFixed(1)} KB`;
+        return `
       <div class="cloud-item" data-idx="${i}">
         <div class="cloud-item-info">
           <div class="cloud-item-time">${new Date(e.timestamp).toLocaleString()}</div>
-          <div class="cloud-item-meta">${(e.size / 1024).toFixed(1)} KB</div>
+          <div class="cloud-item-meta">${sizeStr}${badge}</div>
         </div>
         <div class="cloud-item-actions">
           <button class="cloud-restore" data-idx="${i}">↺ Restore</button>
           <button class="cloud-copy" data-idx="${i}">📋 Copy URL</button>
         </div>
       </div>
-    `,
-      )
+    `;
+      })
       .join("");
 
     // Wire actions
@@ -98,8 +102,18 @@ export function initCloudBackupUI(deps) {
     });
     panel.querySelectorAll(".cloud-copy").forEach((b) => {
       b.addEventListener("click", async () => {
-        await navigator.clipboard.writeText(history[+b.dataset.idx].codeUrl);
-        toast("📋 URL copied");
+        const e = history[+b.dataset.idx];
+        const url = e.url || e.codeUrl; // ← format baru : format lama
+        if (!url) {
+          toast("⚠ URL tidak tersedia");
+          return;
+        }
+        try {
+          await navigator.clipboard.writeText(url);
+          toast("📋 URL copied");
+        } catch {
+          toast("Copy gagal");
+        }
       });
     });
   }
@@ -107,7 +121,11 @@ export function initCloudBackupUI(deps) {
   async function restoreEntry(entry) {
     if (!confirm("Restore snapshot ini? Tab baru akan dibuat.")) return;
     try {
-      const data = await restoreFromUrls(entry.codeUrl, entry.metaUrl);
+      // Format baru: entry.url · Format lama: {entry.codeUrl, entry.metaUrl}
+      const params = entry.url
+        ? { url: entry.url }
+        : { codeUrl: entry.codeUrl, metaUrl: entry.metaUrl };
+      const data = await restoreFromUrls(params);
       const tab = createTab(
         data.name,
         data.code,
@@ -179,9 +197,8 @@ export function initCloudBackupUI(deps) {
     if (!url) return;
     try {
       toast("⏳ Fetching…");
-      // Konvensi: .scad URL → .json metadata di sebelahnya
-      const metaUrl = url.replace(/\.scad$/, ".json");
-      const data = await restoreFromUrls(url, metaUrl);
+      // Auto-detect: URL baru (.json gabungan) atau lama (.scad plain)
+      const data = await restoreFromUrls({ url });
       const tab = createTab(
         data.name,
         data.code,
@@ -192,6 +209,7 @@ export function initCloudBackupUI(deps) {
       saveNow?.();
       doRender?.();
       toast("✓ Restored");
+      $("#cloudRestoreUrl").value = "";
       panel.classList.add("hidden");
     } catch (e) {
       toast("✖ " + e.message);

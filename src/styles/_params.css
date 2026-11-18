@@ -1,0 +1,161 @@
+#paramsPanel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 260px;
+  max-height: calc(100% - 20px);
+  background: rgba(37, 37, 38, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.4);
+}
+
+#paramsPanel.hidden {
+  display: none;
+}
+#paramsPanel.collapsed #paramsBody {
+  display: none;
+}
+
+#paramsHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  user-select: none;
+}
+
+#paramsTitle {
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+#paramsHead .spacer {
+  flex: 1 1 auto;
+}
+
+#paramsHead button {
+  padding: 2px 7px;
+  font-size: 11px;
+  background: var(--btn-bg);
+  border: 1px solid var(--border-2);
+  border-radius: 4px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+#paramsHead button:hover {
+  background: #37373b;
+}
+
+#paramsBody {
+  padding: 10px;
+  overflow-y: auto;
+  font-size: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.params-empty {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.params-empty code {
+  display: inline-block;
+  background: var(--code-bg);
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: #b5cea8;
+}
+
+.param-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.param-row label {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.param-slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.param-slider-wrap input[type="range"] {
+  flex: 1 1 auto;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  accent-color: var(--accent);
+}
+
+.param-num {
+  color: var(--accent-hi);
+  font: 11px var(--mono);
+  min-width: 36px;
+  text-align: right;
+}
+
+.param-row input[type="number"],
+.param-row input[type="text"],
+.param-row input[type="color"],
+.param-row select {
+  width: 100%;
+  padding: 4px 7px;
+  background: var(--code-bg);
+  border: 1px solid var(--border-2);
+  border-radius: 4px;
+  color: var(--text);
+  font: 12px var(--mono);
+}
+
+.param-row input[type="color"] {
+  height: 30px;
+  padding: 2px;
+  cursor: pointer;
+}
+
+.param-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+#btnParams.has-params::after {
+  content: "●";
+  color: var(--accent-hi);
+  font-size: 8px;
+  vertical-align: super;
+  margin-left: 2px;
+}
+
+.param-group {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent-hi);
+  margin: 16px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+
+.param-group:first-child {
+  margin-top: 0;
+}

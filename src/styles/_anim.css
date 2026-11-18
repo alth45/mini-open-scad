@@ -1,0 +1,135 @@
+.anim-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.anim-row > label:first-child {
+  flex: 0 0 90px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.anim-row select {
+  flex: 1 1 auto;
+  padding: 6px 10px;
+  background: #1a1a1a;
+  border: 1px solid var(--border-2);
+  border-radius: 5px;
+  color: var(--text);
+  font: 12px var(--mono);
+}
+
+.anim-radio-group {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+}
+.anim-radio-group label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.anim-radio-group input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+.anim-slider-wrap {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.anim-slider-wrap input[type="range"] {
+  flex: 1 1 auto;
+  accent-color: var(--accent);
+}
+
+#animDelayLabel {
+  font: 11px var(--mono);
+  color: var(--accent-hi);
+  min-width: 52px;
+  text-align: right;
+}
+
+.anim-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.anim-empty code {
+  display: inline-block;
+  background: #1a1a1a;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #b5cea8;
+  margin-top: 4px;
+}
+
+.anim-progress-wrap {
+  margin-top: 14px;
+}
+.anim-progress-wrap.hidden {
+  display: none;
+}
+
+.anim-progress-bar {
+  height: 6px;
+  background: #1a1a1a;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.anim-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-hi));
+  transition: width 0.12s linear;
+}
+
+.anim-status {
+  margin-top: 6px;
+  font: 11px var(--mono);
+  color: var(--muted);
+  text-align: center;
+}
+
+#animStop {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  padding: 7px 16px;
+  background: rgba(239, 68, 68, 0.92);
+  border: 1px solid var(--err);
+  border-radius: 6px;
+  color: #fff;
+  font: 11px var(--mono);
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+#animStop.hidden {
+  display: none;
+}
+#animStop:hover {
+  background: var(--err);
+}
+
+body.is-animating .param-row input,
+body.is-animating .param-row select,
+body.is-animating #btnAnim,
+body.is-animating #btnRender,
+body.is-animating #btnPreview {
+  pointer-events: none;
+  opacity: 0.55;
+}

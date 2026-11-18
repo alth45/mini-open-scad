@@ -1,0 +1,226 @@
+#viewport {
+  position: absolute;
+  inset: 0;
+}
+#viewport canvas {
+  display: block;
+}
+
+#viewportOverlay {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  z-index: 5;
+  pointer-events: none;
+}
+
+#viewportOverlay button {
+  pointer-events: auto;
+  background: rgba(37, 37, 38, 0.85);
+  backdrop-filter: blur(6px);
+  font-size: 12px;
+  padding: 5px 9px;
+}
+
+#fps {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 5;
+  font: 11px var(--mono);
+  color: var(--muted-dim);
+  background: var(--overlay-bg);
+  padding: 3px 7px;
+  border-radius: 5px;
+  pointer-events: none;
+}
+
+#viewInfo {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 5;
+  font: 11px var(--mono);
+  color: var(--muted-dim);
+  background: var(--overlay-bg);
+  padding: 3px 7px;
+  border-radius: 5px;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bbox-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.bbox-key {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.75;
+}
+
+/* Cancel render button */
+#btnCancelRender {
+  padding: 2px 8px;
+  margin-left: 4px;
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  border-radius: 4px;
+  color: #ff7b72;
+  font-size: 11px;
+  font-family: var(--mono);
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+#btnCancelRender:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: var(--err);
+  color: #fff;
+}
+
+#btnCancelRender.hidden {
+  display: none;
+}
+
+/* View preset bar */
+#viewPresetBar {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  z-index: 5;
+  padding: 4px;
+  background: rgba(37, 37, 38, 0.85);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+  pointer-events: auto;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+#viewPresetBar button {
+  min-width: 38px;
+  height: 26px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--muted);
+}
+
+#viewPresetBar button:hover {
+  background: #37373b;
+  color: var(--text);
+  border-color: var(--border-2);
+}
+
+#viewPresetBar button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+@media (max-width: 768px) {
+  #viewPresetBar {
+    bottom: 6px;
+    padding: 3px;
+    gap: 2px;
+  }
+  #viewPresetBar button {
+    min-width: 30px;
+    height: 24px;
+    font-size: 9.5px;
+    padding: 0 4px;
+    letter-spacing: 0;
+  }
+}
+
+#viewPresetBar .view-preset-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 2px;
+  background: var(--border-2);
+}
+
+/* Fullscreen viewport */
+#btnFullscreen {
+  font-size: 15px;
+  padding: 4px 10px;
+  line-height: 1;
+}
+
+body.fullscreen-viewport #topbar,
+body.fullscreen-viewport #tabbar,
+body.fullscreen-viewport #tabbar-desktop,
+body.fullscreen-viewport #left {
+  display: none !important;
+}
+
+body.fullscreen-viewport #right,
+body.fullscreen-viewport #main[data-tab="code"] #right,
+body.fullscreen-viewport #main[data-tab="console"] #right {
+  display: block !important;
+  flex: 1 1 auto !important;
+}
+
+#fullscreenExit {
+  display: none;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 20;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(37, 37, 38, 0.85);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+
+#fullscreenExit:hover {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.55);
+  color: #ff7b72;
+}
+
+body.fullscreen-viewport #fullscreenExit {
+  display: flex;
+}
+
+body.fullscreen-viewport #right:has(#paramsPanel:not(.hidden)) #fullscreenExit {
+  right: 280px;
+}
+
+/* Dimension overlay button */
+#btnDimensions {
+  font-size: 14px;
+  padding: 5px 9px;
+}
+#btnDimensions.toggle-on {
+  background: rgba(59, 130, 246, 0.25);
+  border-color: var(--accent);
+  color: var(--accent-hi);
+}

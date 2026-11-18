@@ -1,0 +1,406 @@
+/* ============================================================
+   BIG RESPONSIVE MOBILE BLOCK
+   ============================================================ */
+@media (max-width: 768px) {
+  #topbar {
+    gap: 6px;
+    padding: 0 8px;
+    padding-top: env(safe-area-inset-top, 0);
+    height: calc(46px + env(safe-area-inset-top, 0px));
+  }
+  #brand span.name {
+    display: none;
+  }
+  #topbar button span.lbl {
+    display: none;
+  }
+  #tabbar {
+    display: flex;
+    flex-shrink: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  #main {
+    flex-direction: column;
+    min-height: 0;
+  }
+  #left {
+    width: 100%;
+    min-width: 0;
+    border-right: 0;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  #right {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    width: 100%;
+  }
+  #main[data-tab="code"] #right {
+    display: none;
+  }
+  #main[data-tab="3d"] #left {
+    display: none;
+  }
+  #main[data-tab="3d"] #right {
+    display: flex;
+    flex: 1 1 auto;
+    height: 100%;
+  }
+  #main[data-tab="console"] #right {
+    display: none;
+  }
+  #main[data-tab="console"] #editorWrap {
+    display: none;
+  }
+  #main[data-tab="console"] #consolePanel {
+    height: auto;
+    flex: 1 1 auto;
+  }
+  #viewport {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  #viewport canvas {
+    display: block;
+    width: 100% !important;
+    height: 100% !important;
+  }
+  #viewportOverlay {
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    left: 8px;
+    gap: 4px;
+  }
+  #viewportOverlay button {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+  #viewPresetBar {
+    bottom: max(6px, env(safe-area-inset-bottom, 6px));
+  }
+  #fps {
+    bottom: max(6px, env(safe-area-inset-bottom, 6px));
+    right: 8px;
+  }
+  #viewInfo {
+    bottom: max(6px, env(safe-area-inset-bottom, 6px));
+    left: 8px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    padding: 5px 8px;
+    font-size: 10px;
+    line-height: 1.35;
+  }
+  #fullscreenExit {
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    right: 8px;
+  }
+  #sectionPanel {
+    bottom: calc(38px + env(safe-area-inset-bottom, 0px));
+  }
+  #measureInfo {
+    bottom: calc(42px + env(safe-area-inset-bottom, 0px));
+  }
+  #paramsPanel {
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    right: 8px;
+    max-height: calc(100% - 16px - env(safe-area-inset-top, 0px));
+  }
+}
+
+@media (max-width: 768px) and (orientation: landscape) {
+  #tabbar {
+    padding: 4px 8px;
+  }
+  #tabbar button {
+    padding: 6px;
+    font-size: 11px;
+  }
+  #topbar {
+    height: calc(40px + env(safe-area-inset-top, 0px));
+  }
+  #main {
+    flex-direction: row;
+  }
+  #left {
+    flex: 1 1 50%;
+    max-width: 50%;
+  }
+  #right {
+    flex: 1 1 50%;
+    max-width: 50%;
+  }
+  #main[data-tab="code"] #right,
+  #main[data-tab="3d"] #left,
+  #main[data-tab="console"] #right {
+    display: flex !important;
+  }
+  #main[data-tab="console"] #editorWrap {
+    display: flex !important;
+  }
+  #tabbar {
+    display: none;
+  }
+}
+
+/* ============================================================
+   MOBILE MORE MENU
+   ============================================================ */
+#btnMore {
+  font-size: 14px;
+  padding: 6px 10px;
+  min-width: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#btnMore.toggle-on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+#mobileMorePanel {
+  position: fixed;
+  background: var(--panel);
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.5);
+  padding: 6px;
+  z-index: 500;
+  min-width: 220px;
+  max-width: 280px;
+  max-height: 70vh;
+  overflow-y: auto;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+
+#mobileMorePanel:not(.hidden) {
+  opacity: 1;
+  pointer-events: auto;
+}
+#mobileMorePanel.hidden {
+  display: none;
+}
+
+.mobile-more-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  padding: 6px 8px 4px;
+  font-weight: 600;
+}
+
+.mobile-more-item {
+  display: block;
+}
+
+.mobile-more-item > button,
+.mobile-more-item > .dd-root {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mobile-more-item > button:hover,
+.mobile-more-item > .dd-root:hover {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+#mobileMorePanel .lbl {
+  display: inline !important;
+}
+#mobileMorePanel .dd-trigger {
+  width: 100%;
+  justify-content: flex-start;
+}
+#mobileMorePanel .dd-label {
+  max-width: none;
+  text-align: left;
+}
+
+/* ============================================================
+   MOBILE TAB SWITCHER
+   ============================================================ */
+@media (max-width: 768px) {
+  #tabbar-desktop {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    height: 40px;
+    overflow: hidden;
+  }
+}
+
+.tab-mobile-switcher {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  background: var(--panel);
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  min-width: 0;
+  transition: background 0.15s;
+}
+
+.tab-mobile-switcher:hover,
+.tab-mobile-switcher:active {
+  background: var(--panel-2);
+}
+
+.tab-mobile-label {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  font-weight: 500;
+}
+
+.tab-mobile-count {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--accent-hi);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.tab-mobile-panel {
+  position: fixed;
+  z-index: 700;
+  background: var(--panel);
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.5);
+  padding: 6px;
+  max-height: 60vh;
+  overflow-y: auto;
+  min-width: 220px;
+  animation: tabPanelFadeIn 0.15s ease-out;
+}
+
+@keyframes tabPanelFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tab-mobile-panel-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  padding: 6px 10px 4px;
+  font-weight: 600;
+}
+
+.tab-mobile-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+  user-select: none;
+  transition: background 0.1s;
+}
+
+.tab-mobile-item:hover {
+  background: rgba(59, 130, 246, 0.15);
+}
+.tab-mobile-item.active {
+  background: rgba(59, 130, 246, 0.25);
+  color: var(--accent-hi);
+  font-weight: 600;
+}
+
+.tab-mobile-name {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-mobile-rename,
+.tab-mobile-close {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.tab-mobile-rename:hover {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--accent-hi);
+}
+.tab-mobile-close {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+.tab-mobile-close:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ff7b72;
+}
+
+.tab-mobile-add-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--accent-hi);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.tab-mobile-add-row:hover {
+  background: rgba(59, 130, 246, 0.1);
+}

@@ -6,6 +6,13 @@
  * Index backup disimpan di localStorage (per-tab, max 20 versi).
  */
 import { CLOUD_CONFIG } from "../config.js";
+import {
+  gzipBytes,
+  gunzipBytes,
+  bytesToBase64,
+  base64ToBytes,
+  hasGzip,
+} from "./gzip-utils.js";
 
 const API_BASE = `https://api.cloudinary.com/v1_1/${CLOUD_CONFIG.cloudName}`;
 const INDEX_KEY = "mini-openscad-cloud-backup-index";
@@ -84,6 +91,46 @@ async function fetchText(url) {
 /* ---------- Public API ---------- */
 
 /**
+ * Gabungkan code + meta jadi 1 document JSON.
+ * Code di-gzip+base64 (kalau browser support), meta plain agar bisa dibaca
+ * langsung saat buka URL Cloudinary di browser.
+ */
+async function encodeSnapshot(tab) {
+  const code = tab.code || "";
+  const meta = {
+    id: tab.id,
+    name: tab.name || "Untitled",
+    paramValues: tab.paramValues || {},
+    autoRender: tab.autoRender !== false,
+    previewMode: tab.previewMode !== false,
+    savedAt: Date.now(),
+  };
+
+  let payload = code;
+  let compressed = false;
+  let encoding = "plain";
+
+  if (hasGzip()) {
+    const bytes = new TextEncoder().encode(code);
+    const gz = await gzipBytes(bytes);
+    if (gz) {
+      payload = bytesToBase64(gz);
+      compressed = true;
+      encoding = "base64-gzip";
+    }
+  }
+
+  const doc = {
+    version: 2,
+    compressed,
+    encoding,
+    meta,
+    payload,
+  };
+  return doc;
+}
+
+/**
  * Upload snapshot satu tab. Return entry { timestamp, codeUrl, metaUrl, size }.
  */
 export async function backupTab(tab) {
@@ -92,31 +139,22 @@ export async function backupTab(tab) {
   const iso = new Date(ts).toISOString().replace(/[:.]/g, "-");
   const base = `${CLOUD_CONFIG.folder}/tabs/${tab.id}/${iso}`;
 
-  const code = tab.code || "";
-  const meta = JSON.stringify(
-    {
-      id: tab.id,
-      name: tab.name || "Untitled",
-      paramValues: tab.paramValues || {},
-      autoRender: tab.autoRender !== false,
-      previewMode: tab.previewMode !== false,
-      savedAt: ts,
-    },
-    null,
-    2,
-  );
+  const doc = await encodeSnapshot(tab);
 
-  const [codeRes, metaRes] = await Promise.all([
-    uploadRaw(`${base}.scad`, code),
-    uploadRaw(`${base}.json`, meta, "application/json"),
-  ]);
+  // Upload 1 file .json berisi { version, compressed, encoding, meta, payload }
+  const res = await uploadRaw(
+    `${base}.json`,
+    JSON.stringify(doc),
+    "application/json",
+  );
 
   const entry = {
     timestamp: ts,
-    codeUrl: codeRes.secure_url,
-    metaUrl: metaRes.secure_url,
-    size: (code.length + meta.length) * 2, // bytes approx
-    deleteToken: codeRes.delete_token || null, // valid 10 menit
+    url: res.secure_url, // ← format baru: 1 URL saja
+    size: res.bytes || JSON.stringify(doc).length, // bytes akurat dari Cloudinary
+    compressed: doc.compressed, // ← info untuk UI
+    version: 2,
+    deleteToken: res.delete_token || null,
   };
   pushBackupEntry(tab.id, entry);
   return entry;
@@ -126,27 +164,94 @@ export async function backupTab(tab) {
  * Restore tab dari URL snapshot Cloudinary.
  * @returns {{ id, name, code, paramValues, autoRender, previewMode }}
  */
-export async function restoreFromUrls(codeUrl, metaUrl) {
-  const [code, metaRaw] = await Promise.all([
-    fetchText(codeUrl),
-    metaUrl ? fetchText(metaUrl) : Promise.resolve("{}"),
-  ]);
-  let meta = {};
-  try {
-    meta = JSON.parse(metaRaw);
-  } catch {
-    /* meta korup — abaikan */
+/**
+ * Restore dari snapshot. Support 3 format untuk backward-compat:
+ *   1. { url }                          → format baru (1 file .json gabungan)
+ *   2. { codeUrl, metaUrl }             → format lama (2 file terpisah)
+ *   3. "https://.../file.scad" (string) → legacy URL langsung (plain code)
+ */
+export async function restoreFromUrls(params) {
+  if (typeof params === "string") {
+    // Format 3: URL plain .scad
+    const code = await fetchText(params);
+    return {
+      id: "restored_" + Date.now().toString(36),
+      name: "Restored Tab",
+      code,
+      paramValues: {},
+      autoRender: true,
+      previewMode: true,
+    };
   }
-  return {
-    id: meta.id || "restored_" + Date.now().toString(36),
-    name: meta.name || "Restored Tab",
-    code,
-    paramValues: meta.paramValues || {},
-    autoRender: meta.autoRender !== false,
-    previewMode: meta.previewMode !== false,
-  };
-}
 
+  if (!params) throw new Error("Restore butuh URL atau {url / codeUrl}");
+
+  // Format 1: single URL (baru)
+  if (params.url) {
+    const text = await fetchText(params.url);
+    let doc;
+    try {
+      doc = JSON.parse(text);
+    } catch {
+      // File bukan JSON valid → anggap plain .scad (fallback)
+      return {
+        id: "restored_" + Date.now().toString(36),
+        name: "Restored Tab",
+        code: text,
+        paramValues: {},
+        autoRender: true,
+        previewMode: true,
+      };
+    }
+
+    let code = doc.payload || "";
+    if (doc.compressed && doc.encoding === "base64-gzip") {
+      const bytes = base64ToBytes(code);
+      const out = await gunzipBytes(bytes);
+      if (out) {
+        code = new TextDecoder().decode(out);
+      } else {
+        console.warn(
+          "[cloud] gunzip gagal — payload tetap base64 (tidak bisa dibaca)",
+        );
+      }
+    }
+
+    const meta = doc.meta || {};
+    return {
+      id: meta.id || "restored_" + Date.now().toString(36),
+      name: meta.name || "Restored Tab",
+      code,
+      paramValues: meta.paramValues || {},
+      autoRender: meta.autoRender !== false,
+      previewMode: meta.previewMode !== false,
+    };
+  }
+
+  // Format 2: legacy (2 file terpisah)
+  if (params.codeUrl) {
+    const [code, metaRaw] = await Promise.all([
+      fetchText(params.codeUrl),
+      params.metaUrl ? fetchText(params.metaUrl) : Promise.resolve("{}"),
+    ]);
+    let meta = {};
+    try {
+      meta = JSON.parse(metaRaw);
+    } catch {
+      /* abaikan */
+    }
+    return {
+      id: meta.id || "restored_" + Date.now().toString(36),
+      name: meta.name || "Restored Tab",
+      code,
+      paramValues: meta.paramValues || {},
+      autoRender: meta.autoRender !== false,
+      previewMode: meta.previewMode !== false,
+    };
+  }
+
+  throw new Error("Restore butuh `url` atau `codeUrl`");
+}
 /**
  * Delete file via delete_token (valid hanya 10 menit setelah upload).
  * Setelah 10 menit, user harus delete manual di Cloudinary dashboard.

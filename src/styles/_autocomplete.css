@@ -1,0 +1,119 @@
+.ac-popup {
+  position: fixed;
+  z-index: 750;
+  min-width: 240px;
+  max-width: 380px;
+  background: var(--panel);
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  font-size: 12px;
+}
+.ac-popup.hidden {
+  display: none;
+}
+
+.ac-list {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 4px;
+}
+.ac-list::-webkit-scrollbar {
+  width: 6px;
+}
+.ac-list::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 3px;
+}
+
+.ac-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text);
+  user-select: none;
+}
+.ac-item.active,
+.ac-item:hover {
+  background: rgba(59, 130, 246, 0.2);
+  color: #fff;
+}
+
+.ac-icon {
+  width: 16px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+.ac-item[data-kind="module"] .ac-icon {
+  color: #60a5fa;
+}
+.ac-item[data-kind="function"] .ac-icon {
+  color: #a78bfa;
+}
+.ac-item[data-kind="keyword"] .ac-icon {
+  color: #f59e0b;
+}
+.ac-item[data-kind="var"] .ac-icon {
+  color: #34d399;
+}
+
+.ac-label {
+  font: 12px var(--mono);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.ac-desc {
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-left: auto;
+  padding-left: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.ac-item.active .ac-desc,
+.ac-item:hover .ac-desc {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+[data-theme="light"] .ac-popup {
+  background: #fff;
+  border-color: #c6c6ce;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.15);
+}
+[data-theme="light"] .ac-item.active,
+[data-theme="light"] .ac-item:hover {
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--text);
+}
+[data-theme="light"] .ac-item.active .ac-desc,
+[data-theme="light"] .ac-item:hover .ac-desc {
+  color: var(--muted);
+}
+
+@media (max-width: 768px) {
+  .ac-popup {
+    min-width: 200px;
+    max-width: calc(100vw - 24px);
+  }
+  .ac-list {
+    max-height: 200px;
+  }
+  .ac-desc {
+    display: none;
+  }
+  .ac-item {
+    padding: 8px;
+  }
+}
