@@ -13,6 +13,7 @@ import {
   base64ToBytes,
   hasGzip,
 } from "./gzip-utils.js";
+import { loadPresets } from "./preset-store.js";
 
 const API_BASE = `https://api.cloudinary.com/v1_1/${CLOUD_CONFIG.cloudName}`;
 const INDEX_KEY = "mini-openscad-cloud-backup-index";
@@ -97,12 +98,19 @@ async function fetchText(url) {
  */
 async function encodeSnapshot(tab) {
   const code = tab.code || "";
+  let presets = [];
+  try {
+    presets = await loadPresets(tab.id);
+  } catch (e) {
+    console.warn("[cloud] load presets failed:", e);
+  }
   const meta = {
     id: tab.id,
     name: tab.name || "Untitled",
     paramValues: tab.paramValues || {},
     autoRender: tab.autoRender !== false,
     previewMode: tab.previewMode !== false,
+    presets,
     savedAt: Date.now(),
   };
 
@@ -225,6 +233,7 @@ export async function restoreFromUrls(params) {
       paramValues: meta.paramValues || {},
       autoRender: meta.autoRender !== false,
       previewMode: meta.previewMode !== false,
+      presets: Array.isArray(meta.presets) ? meta.presets : [],
     };
   }
 

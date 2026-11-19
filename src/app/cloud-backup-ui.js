@@ -132,10 +132,25 @@ export function initCloudBackupUI(deps) {
         data.paramValues,
         data.autoRender,
       );
+
+      // ✨ Migrate presets dari snapshot (id lama) ke tab baru (id baru)
+      if (Array.isArray(data.presets) && data.presets.length > 0) {
+        try {
+          const { savePresets } = await import("../files/preset-store.js");
+          await savePresets(tab.id, data.presets);
+        } catch (e) {
+          console.warn("[cloud] restore presets failed:", e);
+        }
+      }
+
       tabManager.add(tab);
       saveNow?.();
       doRender?.();
-      toast("✓ Restored ke tab baru");
+      toast(
+        data.presets?.length
+          ? `✓ Restored (${data.presets.length} preset)`
+          : "✓ Restored ke tab baru",
+      );
       panel.classList.add("hidden");
     } catch (e) {
       log("error", "Restore gagal: " + e.message);

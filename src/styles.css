@@ -29,5 +29,6 @@
 @import "./styles/_snippet.css";
 @import "./styles/_image.css";
 @import "./styles/_cloud.css";
+@import "./styles/_presets.css";
 
 @import "./styles/_light-theme.css";

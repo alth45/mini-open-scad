@@ -20,6 +20,7 @@ import { initViewerTools } from "./app/viewer-tools.js";
 import { initCapture } from "./app/capture.js";
 import { initExportUI } from "./app/export-ui.js";
 import { initSnippetUI } from "./app/snippet-ui.js";
+import { initPresetUI } from "./app/preset-ui.js";
 import { setupEditor } from "./app/editor-setup.js";
 import { setupPreview } from "./app/preview-setup.js";
 import { setupTabs } from "./app/tabs-setup.js";
@@ -29,8 +30,8 @@ import { initPWA } from "./app/pwa.js";
 import { toast } from "./ui/status.js";
 import { loadBundledLibraries } from "./files/bundled-libs.js";
 import { initAIUI } from "./app/ai-ui.js";
-
 import { initCloudBackupUI } from "./app/cloud-backup-ui.js";
+
 /* ============================================================
    Core Initialization
    ============================================================ */
@@ -52,6 +53,7 @@ try {
 
 let tabManager = null;
 let renderController = null;
+let presetUI = null; // ← declare early untuk guard di onTabActivated
 
 /* ============================================================
    Setup Modules
@@ -101,11 +103,12 @@ const profilerPanel = createProfilerPanel(
   const clearBtn = profHead.querySelector("#profClear");
   if (clearBtn) profHead.insertBefore(exportBtn, clearBtn);
 })();
+
 renderController = initRenderController({
   editor,
   viewer,
   workerClient,
-  tabManager,
+  tabManager, // null saat init — controller pakai guard `if (tabManager)`
   paramsPanel,
   btnParams,
 });
@@ -114,8 +117,12 @@ const { tabManager: tm, addTab } = setupTabs({
   editor,
   getRenderController: () => renderController,
   updateAutoBtn,
+  onTabActivated: (tab) => {
+    // presetUI sudah initialized sebelum bootApp → aman pakai optional chaining
+    if (tab && presetUI?.refreshForTab) presetUI.refreshForTab(tab.id);
+  },
 });
-tabManager = tm;
+tabManager = tm; // ← FIX: baris ini yang hilang!
 
 /* ============================================================
    Wiring UI Modules
@@ -183,6 +190,14 @@ initCloudBackupUI({
   saveNow: renderController.saveNow,
   doRender: renderController.doRender,
 });
+
+// ✨ Param Presets per tab
+presetUI = initPresetUI({
+  editor,
+  tabManager,
+  renderController,
+});
+
 // ✨ Snippet Library — HARUS sebelum initMobileUI
 initSnippetUI({
   editor,
@@ -190,6 +205,7 @@ initSnippetUI({
   saveNow: renderController.saveNow,
   doRender: renderController.doRender,
 });
+
 // ✨ AI Code Fixer — harus sebelum initMobileUI
 initAIUI({
   editor,
@@ -198,9 +214,10 @@ initAIUI({
   doRender: renderController.doRender,
   getLastError: renderController.getLastError,
 });
+
 initMobileUI({ viewer });
 initPWA({ log, toast });
-// Load bundled libraries (sekali saja per versi)
+
 /* ============================================================
    Init App
    ============================================================ */
