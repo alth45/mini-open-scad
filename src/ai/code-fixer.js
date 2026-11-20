@@ -33,14 +33,14 @@ export async function askFixer(
     { role: "user", content: buildUserMessage({ code, error, question }) },
   ];
 
-  const reply = await client.chat(messages, {
+  const { content, usage } = await client.chat(messages, {
     stream: true,
     onToken,
     signal,
     maxTokens: 8192,
   });
 
-  return { reply, proposedCode: extractScadBlock(reply) };
+  return { reply: content, proposedCode: extractScadBlock(content), usage };
 }
 
 /**
@@ -60,14 +60,14 @@ export async function askGenerator(
     },
   ];
 
-  const reply = await client.chat(messages, {
+  const { content, usage } = await client.chat(messages, {
     stream: true,
     onToken,
     signal,
     maxTokens: 8192,
   });
 
-  return { reply, proposedCode: extractScadBlock(reply) };
+  return { reply: content, proposedCode: extractScadBlock(content), usage };
 }
 
 /**
@@ -84,12 +84,12 @@ export async function askExplainer(
     { role: "user", content: buildExplainerUserMessage({ code, question }) },
   ];
 
-  const reply = await client.chat(messages, {
+  const { content, usage } = await client.chat(messages, {
     stream: true,
     onToken,
     signal,
     maxTokens: 4096,
   });
 
-  return { reply };
+  return { reply: content, usage };
 }

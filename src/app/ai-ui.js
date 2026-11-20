@@ -1,5 +1,7 @@
 import { createTokenHarborClient } from "../ai/tokenharbor-client.js";
 import { askFixer, askGenerator, askExplainer } from "../ai/code-fixer.js";
+import { recordRequest } from "../ai/token-tracker.js";
+import { createTokenWidget } from "../ui/token-widget.js";
 import { AI_CONFIG } from "../config.js";
 import { log } from "../ui/console.js";
 import { toast } from "../ui/status.js";
@@ -63,6 +65,8 @@ export function initAIUI(deps) {
         </div>
       </div>
       <div id="aiStatus" class="ai-status"></div>
+      <div id="aiStatsBar" class="ai-stats-bar"></div>
+
     </div>
   `;
   document.body.appendChild(modal);
@@ -74,6 +78,8 @@ export function initAIUI(deps) {
   const settingsEl = $("#aiSettings");
   const keyInput = $("#aiKeyInput");
   const keyStatus = $("#aiKeyStatus");
+  // ✨ Init token widget (subscribe ke tracker, auto-render)
+  const tokenWidget = createTokenWidget($("#aiStatsBar"));
 
   const suggestionsEl = $("#aiSuggestions");
   let currentMode = "fix"; // "fix" | "generate"
@@ -90,6 +96,7 @@ export function initAIUI(deps) {
       settingsEl.classList.remove("hidden");
     }
     applyModeUI(); // sync UI dengan currentMode terakhir
+    tokenWidget?.refresh?.(); // ← refresh stats fresh
     inputEl.focus();
   }
 
@@ -175,6 +182,15 @@ export function initAIUI(deps) {
                 onToken: (chunk) => appendStream(replyEl, chunk),
                 signal: abortController.signal,
               });
+
+      // ✨ Track usage (auto-update widget)
+      if (result.usage) {
+        recordRequest({
+          inputTokens: result.usage.prompt_tokens || 0,
+          outputTokens: result.usage.completion_tokens || 0,
+          model: AI_CONFIG.model,
+        });
+      }
 
       history.push({ role: "assistant", content: result.reply });
       // Explain mode: JANGAN tampilkan fix panel (murni edukasi)

@@ -1,0 +1,107 @@
+/* ---------- AI TOKEN/COST TRACKER ---------- */
+.ai-stats-bar {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--panel-2);
+  padding: 6px 14px;
+  font-size: 11px;
+}
+
+.ai-stats-inner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.ai-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.ai-stat-label {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.75;
+}
+.ai-stat-val {
+  font: 11px var(--mono);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Color states untuk rate limits */
+.ai-stat.ai-stat-warn .ai-stat-val {
+  color: var(--warn);
+}
+.ai-stat.ai-stat-danger .ai-stat-val {
+  color: var(--err);
+  animation: ai-stat-pulse 1.5s infinite;
+}
+
+@keyframes ai-stat-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.ai-stats-reset {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border-2);
+  border-radius: 4px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ai-stats-reset:hover {
+  background: var(--btn-hover);
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+/* Light theme */
+[data-theme="light"] .ai-stats-bar {
+  background: #ececef;
+  border-top-color: #d8d8dc;
+}
+[data-theme="light"] .ai-stat-val {
+  color: var(--text);
+}
+[data-theme="light"] .ai-stat.ai-stat-warn .ai-stat-val {
+  color: #ca8a04;
+}
+[data-theme="light"] .ai-stat.ai-stat-danger .ai-stat-val {
+  color: #dc2626;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .ai-stats-inner {
+    gap: 10px;
+    font-size: 10.5px;
+  }
+  .ai-stat-label {
+    font-size: 9px;
+  }
+  .ai-stat-val {
+    font-size: 10.5px;
+  }
+  .ai-stats-bar {
+    padding: 5px 12px;
+  }
+}

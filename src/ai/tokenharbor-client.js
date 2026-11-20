@@ -38,6 +38,8 @@ export function createTokenHarborClient({
       stream,
       max_tokens: maxTokens,
       temperature: 0.3,
+      // ✨ Minta usage di final SSE chunk (OpenAI standard)
+      ...(stream ? { stream_options: { include_usage: true } } : {}),
     });
 
     // Free tier: request max 4 MB
@@ -85,16 +87,20 @@ export function createTokenHarborClient({
 
     if (!stream) {
       const data = await res.json();
-      return data.choices?.[0]?.message?.content || "";
+      return {
+        content: data.choices?.[0]?.message?.content || "",
+        usage: data.usage || null,
+      };
     }
-    return readSSE(res, onToken);
+    return readSSE(res, onToken, messages);
   }
 
-  async function readSSE(res, onToken) {
+  async function readSSE(res, onToken, originalMessages) {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
     let full = "";
+    let usage = null;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -110,6 +116,8 @@ export function createTokenHarborClient({
         if (!payload || payload === "[DONE]") continue;
         try {
           const json = JSON.parse(payload);
+          // ✨ Capture usage dari chunk terakhir (stream_options.include_usage)
+          if (json.usage) usage = json.usage;
           const delta = json.choices?.[0]?.delta?.content || "";
           if (delta) {
             full += delta;
@@ -120,7 +128,23 @@ export function createTokenHarborClient({
         }
       }
     }
-    return full;
+
+    // ✨ Fallback: estimasi kalau server tidak return usage
+    if (!usage) {
+      const inputText = (originalMessages || [])
+        .map((m) =>
+          typeof m.content === "string" ? m.content : JSON.stringify(m.content),
+        )
+        .join("\n");
+      usage = {
+        prompt_tokens: Math.ceil(inputText.length / 4),
+        completion_tokens: Math.ceil(full.length / 4),
+        total_tokens: Math.ceil((inputText.length + full.length) / 4),
+        estimated: true,
+      };
+    }
+
+    return { content: full, usage };
   }
 
   return { chat, model };
