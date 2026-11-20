@@ -561,7 +561,8 @@ Backup snapshot per tab ke **Cloudinary** (unsigned upload → tidak ada secret 
 ```mermaid
 flowchart TB
     subgraph App["💻 App (cloud-backup-ui.js)"]
-        BTN["☁ Tombol Backup"] + PANEL["Panel riwayat per tab"]
+        BTN["☁ Tombol Backup"]
+        PANEL["Panel riwayat per tab"]
     end
 
     subgraph Local["💾 Local (IndexedDB + localStorage)"]
