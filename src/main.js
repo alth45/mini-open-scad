@@ -20,6 +20,7 @@ import { initViewerTools } from "./app/viewer-tools.js";
 import { initCapture } from "./app/capture.js";
 import { initExportUI } from "./app/export-ui.js";
 import { initSnippetUI } from "./app/snippet-ui.js";
+import { initImportVectorUI } from "./app/import-vector-ui.js";
 import { initPresetUI } from "./app/preset-ui.js";
 import { setupEditor } from "./app/editor-setup.js";
 import { setupPreview } from "./app/preview-setup.js";
@@ -108,7 +109,7 @@ renderController = initRenderController({
   editor,
   viewer,
   workerClient,
-  tabManager, // null saat init — controller pakai guard `if (tabManager)`
+  getTabManager: () => tabManager,
   paramsPanel,
   btnParams,
 });
@@ -127,11 +128,24 @@ tabManager = tm; // ← FIX: baris ini yang hilang!
 /* ============================================================
    Wiring UI Modules
    ============================================================ */
+
+const importVector = initImportVectorUI({
+  editor,
+  tabManager,
+  saveNow: renderController.saveNow,
+  doRender: renderController.doRender,
+});
+
 initFilesUI({
   editor,
   viewer,
   scheduleAutoRender: renderController.scheduleAutoRender,
+  onVectorDrop: (file) => {
+    importVector.open();
+    importVector.processFile(file);
+  },
 });
+
 initShareUI({ tabManager });
 const { homeScreen, HOME_SEEN_KEY } = initHomeUI({
   tabManager,

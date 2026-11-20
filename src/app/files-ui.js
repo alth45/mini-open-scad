@@ -51,8 +51,19 @@ export function initFilesUI(deps) {
     e.preventDefault();
     dragCounter = 0;
     dropOverlay.classList.add("hidden");
-    await importFiles([...e.dataTransfer.files]);
-    await refreshFilesList();
+
+    const files = [...e.dataTransfer.files];
+    const isVector = (f) => /\.(svg|dxf)$/i.test(f.name);
+    const vectorFiles = files.filter(isVector);
+    const otherFiles = files.filter((f) => !isVector(f));
+
+    if (vectorFiles.length > 0 && deps.onVectorDrop) {
+      deps.onVectorDrop(vectorFiles[0]);
+    }
+    if (otherFiles.length > 0) {
+      await importFiles(otherFiles);
+      await refreshFilesList();
+    }
   });
 
   async function importFiles(files) {

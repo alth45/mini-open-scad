@@ -30,5 +30,6 @@
 @import "./styles/_image.css";
 @import "./styles/_cloud.css";
 @import "./styles/_presets.css";
+@import "./styles/_import-vector.css"; 
 
 @import "./styles/_light-theme.css";

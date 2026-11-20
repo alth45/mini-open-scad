@@ -1,5 +1,5 @@
 import { store } from "../store/app-store.js";
-import { CONFIG } from "../config.js";
+import { CONFIG, CLOUD_CONFIG } from "../config.js"; // ← merged (fix duplicate)
 import { parseParams, mergeParamValues } from "../core/params.js";
 import { buildModel, deserializeModel } from "../viewer/model.js";
 import { extractImportNames } from "../core/ast-utils.js";
@@ -11,48 +11,63 @@ import { log } from "../ui/console.js";
 import { formatError } from "../utils.js";
 import { saveTabs } from "../storage.js";
 import { profiler } from "../profiler.js";
-
 import { backupTab } from "../files/cloud-storage.js";
-import { CLOUD_CONFIG } from "../config.js";
 
 export function initRenderController(deps) {
-  const { editor, viewer, workerClient, tabManager, paramsPanel, btnParams } =
-    deps;
+  const { editor, viewer, workerClient, paramsPanel, btnParams } = deps;
+
+  // ✨ Closure getter — selalu baca `tabManager` terkini.
+  //    Fallback ke `deps.tabManager` untuk backward-compat.
+  const getTabManager = deps.getTabManager || (() => deps.tabManager);
+
   let saveTimer = null;
   let autoRenderTimer = null;
-  let _lastError = null; // ✨ state error terakhir untuk AI Code Fixer
+  let _lastError = null; // error render terakhir untuk AI Code Fixer
   let _cloudBackupTimer = null;
-  let _lastBackedUpCode = null;
+  const _lastBackedUpByTab = new Map(); // tabId → last code (per-tab dedup)
 
+  /* ============================================================
+     Refresh params panel dari AST
+     ============================================================ */
   function refreshParams() {
     const params = parseParams(editor.getValue());
     const merged = mergeParamValues(params, store.getState().paramValues);
     store.dispatch({ type: "SET_PARAMS", payload: merged });
     // ❌ TIDAK clear _lastError di sini — biarkan error render terakhir persist
-    tabManager?.updateActiveSilent({ paramValues: merged });
+    getTabManager()?.updateActiveSilent({ paramValues: merged });
     paramsPanel.setParams(params, merged);
     btnParams.classList.toggle("has-params", params.length > 0);
   }
 
+  /* ============================================================
+     Save (localStorage) + Cloudinary backup (debounced)
+     ============================================================ */
   function saveNow() {
-    if (tabManager)
-      saveTabs(
-        tabManager.tabs,
-        tabManager.activeId,
-        store.getState().previewMode,
-      );
+    const tm = getTabManager();
 
-    // ✨ Cloudinary backup (debounced, di background)
-    const activeTab = tabManager?.active;
+    // 1. Save ke localStorage (primary, offline-ready)
+    if (tm) {
+      saveTabs(tm.tabs, tm.activeId, store.getState().previewMode);
+    }
+
+    // 2. Cloudinary backup (debounced 10s, di background)
+    const activeTab = tm?.active;
     if (
       activeTab &&
       CLOUD_CONFIG.cloudName !== "GANTI_DENGAN_CLOUD_NAME_ANDA"
     ) {
       clearTimeout(_cloudBackupTimer);
       _cloudBackupTimer = setTimeout(async () => {
-        const tab = tabManager.active;
-        if (!tab || tab.code === _lastBackedUpCode) return;
-        _lastBackedUpCode = tab.code;
+        // Re-read tabManager saat timer fires (bisa berubah / null)
+        const currentTm = getTabManager();
+        const tab = currentTm?.active;
+        if (!tab) return;
+
+        // Per-tab dedup: skip kalau code tab ini tidak berubah
+        const lastCode = _lastBackedUpByTab.get(tab.id);
+        if (tab.code === lastCode) return;
+        _lastBackedUpByTab.set(tab.id, tab.code);
+
         try {
           const entry = await backupTab(tab);
           if (entry) {
@@ -63,7 +78,7 @@ export function initRenderController(deps) {
           }
         } catch (e) {
           console.warn("[cloud] backup failed:", e);
-          // Tidak toast — backup adalah background, jangan ganggu user
+          // Silent — backup adalah background, jangan ganggu user
         }
       }, CLOUD_CONFIG.autoBackupDelayMs);
     }
@@ -77,11 +92,13 @@ export function initRenderController(deps) {
   function scheduleAutoRender(delay = null) {
     if (!store.getState().autoRender) return;
     clearTimeout(autoRenderTimer);
-    // Gunakan delay default dari CONFIG, atau delay khusus (misal untuk slider = 200ms)
     const wait = delay !== null ? delay : CONFIG.autoRenderDelay;
     autoRenderTimer = setTimeout(doRender, wait);
   }
 
+  /* ============================================================
+     Render pipeline
+     ============================================================ */
   async function doRender(opts = {}) {
     const {
       skipParams = false,
@@ -168,7 +185,6 @@ export function initRenderController(deps) {
           "ok",
           `Rendered in ${result.ms.toFixed(0)} ms · ${result.meshCount} mesh · ${Math.round(result.triCount)} triangle`,
         );
-        // Tambahan Fase 4: Surface warning preview mode
         if (currentState.previewMode && result.ms > 500) {
           log(
             "warn",
@@ -194,6 +210,9 @@ export function initRenderController(deps) {
     }
   }
 
+  /* ============================================================
+     Format code
+     ============================================================ */
   function doFormat() {
     const current = editor.getValue();
     if (!current.trim()) {
@@ -205,7 +224,7 @@ export function initRenderController(deps) {
       if (formatted === current) toast("✓ Sudah rapi");
       else {
         editor.setValue(formatted);
-        tabManager?.updateActiveSilent({ code: formatted });
+        getTabManager()?.updateActiveSilent({ code: formatted });
         scheduleSave();
         toast("✨ Code formatted");
       }
@@ -217,6 +236,9 @@ export function initRenderController(deps) {
     }
   }
 
+  /* ============================================================
+     Go to line (prompt)
+     ============================================================ */
   function goToLine() {
     const el = document.getElementById("editor");
     const lines = el.value.split("\n");
@@ -239,6 +261,6 @@ export function initRenderController(deps) {
     doRender,
     doFormat,
     goToLine,
-    getLastError: () => _lastError, // ✨ untuk AI Code Fixer
+    getLastError: () => _lastError,
   };
 }

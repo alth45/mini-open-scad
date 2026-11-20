@@ -44,6 +44,7 @@ function setupMobileMore() {
     "exportDropdown",
     "presetDropdown",
     "btnSnippets",
+    "btnImportVector", 
     "btnClear",
     "btnShare",
     "btnSaveProject",
