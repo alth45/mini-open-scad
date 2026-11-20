@@ -4,12 +4,13 @@ import { recordRequest } from "../ai/token-tracker.js";
 import { createTokenWidget } from "../ui/token-widget.js";
 import { AI_CONFIG } from "../config.js";
 import { log } from "../ui/console.js";
+import { getToolDefinitions, createToolExecutor } from "../ai/ai-tools.js";
 import { toast } from "../ui/status.js";
 import { diffLines, diffStats, collapseContext } from "../ai/diff.js";
 import { escapeHtml } from "../utils.js";
 
-export function initAIUI(deps) {
-  const { editor, tabManager, saveNow, doRender, getLastError } = deps;
+export async function initAIUI(deps) {
+  const { editor, tabManager, saveNow, doRender, getLastError, viewer } = deps;
 
   const client = createTokenHarborClient({
     getApiKey: () => localStorage.getItem(AI_CONFIG.keyStorage) || "",
@@ -35,6 +36,12 @@ export function initAIUI(deps) {
           <button id="aiKeySave" class="primary">Save key</button>
           <button id="aiKeyClear">Clear</button>
           <span id="aiKeyStatus"></span>
+        </div>
+        <div class="ai-settings-row" style="margin-top:10px">
+          <label class="ai-setting-check">
+            <input type="checkbox" id="aiToolsEnabled" checked />
+            <span>Enable tool calling (model must support)</span>
+          </label>
         </div>
         <p class="ai-hint">
           Dapatkan key gratis di
@@ -84,6 +91,34 @@ export function initAIUI(deps) {
   const suggestionsEl = $("#aiSuggestions");
   let currentMode = "fix"; // "fix" | "generate"
 
+  const toolsToggle = $("#aiToolsEnabled");
+
+  // Persist toggle state
+  try {
+    const saved = localStorage.getItem("mini-openscad-ai-tools-enabled");
+    if (saved === "0") toolsToggle.checked = false;
+  } catch {
+    /* ignore */
+  }
+  toolsToggle?.addEventListener("change", () => {
+    try {
+      localStorage.setItem(
+        "mini-openscad-ai-tools-enabled",
+        toolsToggle.checked ? "1" : "0",
+      );
+    } catch {
+      /* ignore */
+    }
+  });
+
+  // ✨ Tool executor — dipakai orchestrator saat tools enabled
+  const toolExecutor = createToolExecutor({
+    getEditorValue: () => editor.getValue(),
+    getLastError: () => getLastError?.(),
+    viewer,
+    store: (await import("../store/app-store.js")).store,
+  });
+
   const history = []; // [{role, content}]
   let busy = false;
   let abortController = null;
@@ -123,6 +158,55 @@ export function initAIUI(deps) {
     logEl.scrollTop = logEl.scrollHeight;
   }
 
+  /* ---------- Tool badge helpers ---------- */
+  function summarizeToolResult(name, result) {
+    if (!result) return "";
+    if (result.error) return "— error";
+    switch (name) {
+      case "get_model_stats":
+        return result.hasModel ? `— ${result.triangles} tri` : "— kosong";
+      case "get_render_error":
+        return result.error ? "— ada error" : "— clean";
+      case "get_current_code":
+        return `— ${result.length} chars`;
+      case "get_param_values":
+        return `— ${result.count} params`;
+      case "get_param_definitions":
+        return `— ${(result.params || []).length} def`;
+      case "get_imported_files":
+        return `— ${result.count} file`;
+      case "list_snippets":
+        return `— ${result.count} snippets`;
+      case "validate_code":
+        return result.ok ? "— ok" : "— error";
+      default:
+        return "";
+    }
+  }
+
+  function makeToolBadgeHandler(replyEl) {
+    const badges = new Map();
+    return ({ id, name, status, result }) => {
+      let badge = badges.get(id);
+      if (status === "running") {
+        badge = document.createElement("span");
+        badge.className = "ai-tool-badge running";
+        badge.textContent = `🔧 ${name}()…`;
+        replyEl.appendChild(badge);
+        badges.set(id, badge);
+      } else if (badge) {
+        if (status === "done") {
+          badge.className = "ai-tool-badge done";
+          badge.textContent =
+            `✓ ${name}() ${summarizeToolResult(name, result)}`.trim();
+        } else if (status === "error") {
+          badge.className = "ai-tool-badge error";
+          badge.textContent = `✗ ${name}()`;
+        }
+      }
+    };
+  }
+
   /* ---------- Core ---------- */
   async function run({ question, autoFix, mode = currentMode }) {
     if (busy) return;
@@ -156,50 +240,84 @@ export function initAIUI(deps) {
 
     const replyEl = addMessage("assistant", "");
 
+    const toolsEnabled =
+      toolsToggle?.checked && getToolDefinitions()?.length > 0;
+    const tools = toolsEnabled ? getToolDefinitions() : undefined;
+    const onToolCall = makeToolBadgeHandler(replyEl);
+    const onUsage = (usage) => {
+      recordRequest({
+        inputTokens: usage.prompt_tokens || 0,
+        outputTokens: usage.completion_tokens || 0,
+        model: AI_CONFIG.model,
+      });
+    };
+
     try {
+      const commonOpts = {
+        onToken: (chunk) => appendStream(replyEl, chunk),
+        signal: abortController.signal,
+        tools,
+        toolExecutor: toolsEnabled ? toolExecutor : undefined,
+        onToolCall: toolsEnabled ? onToolCall : undefined,
+        onUsage,
+      };
+
       const result =
         mode === "explain"
           ? await askExplainer(client, {
               code: oldCode,
               question,
               history: history.slice(-6, -1),
-              onToken: (chunk) => appendStream(replyEl, chunk),
-              signal: abortController.signal,
+              ...commonOpts,
             })
           : mode === "generate"
             ? await askGenerator(client, {
                 prompt: question,
                 existingCode: oldCode,
                 history: history.slice(-6, -1),
-                onToken: (chunk) => appendStream(replyEl, chunk),
-                signal: abortController.signal,
+                ...commonOpts,
               })
             : await askFixer(client, {
                 code: oldCode,
                 error,
                 question,
                 history: history.slice(-6, -1),
-                onToken: (chunk) => appendStream(replyEl, chunk),
-                signal: abortController.signal,
+                ...commonOpts,
               });
 
-      // ✨ Track usage (auto-update widget)
-      if (result.usage) {
-        recordRequest({
-          inputTokens: result.usage.prompt_tokens || 0,
-          outputTokens: result.usage.completion_tokens || 0,
-          model: AI_CONFIG.model,
-        });
+      // Usage sudah di-track per-round via onUsage — skip aggregate
+      // (aggregate kalau ada tidak ada onUsage callback sama sekali)
+      if (result.usage && (!toolsEnabled || !result.toolTrace?.length)) {
+        // fallback kalau bukan tools path atau tidak ada tool calls
+        // (usage sudah di-record via onUsage kalau tools path, jadi ini hanya untuk non-tools)
+        // Skip — sudah handled by onUsage di client.chat? Tidak — onUsage hanya di orchestrator.
+        // Kalau non-tools path: recordRequest dipanggil di sini
+        if (!toolsEnabled) {
+          recordRequest({
+            inputTokens: result.usage.prompt_tokens || 0,
+            outputTokens: result.usage.completion_tokens || 0,
+            model: AI_CONFIG.model,
+          });
+        }
       }
 
       history.push({ role: "assistant", content: result.reply });
-      // Explain mode: JANGAN tampilkan fix panel (murni edukasi)
       if (mode !== "explain" && result.proposedCode) {
         appendFixBlock(replyEl, result.proposedCode, oldCode, {
           generated: mode === "generate",
           prompt: question || "",
         });
       }
+
+      // ✨ Log tool trace ke console (untuk debug)
+      if (result.toolTrace?.length > 0) {
+        const toolNames = result.toolTrace.map((t) => t.name).join(", ");
+        log(
+          "info",
+          `🤖 AI used ${result.toolTrace.length} tool(s): ${toolNames}`,
+        );
+      }
+
       statusEl.textContent = "";
     } catch (e) {
       if (e.name === "AbortError") return;

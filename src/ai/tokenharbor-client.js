@@ -29,6 +29,7 @@ export function createTokenHarborClient({
       onToken,
       signal,
       maxTokens = AI_CONFIG.maxTokens,
+      tools,
     } = opts;
     const key = apiKey();
 
@@ -38,8 +39,10 @@ export function createTokenHarborClient({
       stream,
       max_tokens: maxTokens,
       temperature: 0.3,
-      // ✨ Minta usage di final SSE chunk (OpenAI standard)
       ...(stream ? { stream_options: { include_usage: true } } : {}),
+      ...(Array.isArray(tools) && tools.length > 0
+        ? { tools, tool_choice: "auto" }
+        : {}),
     });
 
     // Free tier: request max 4 MB
@@ -87,9 +90,11 @@ export function createTokenHarborClient({
 
     if (!stream) {
       const data = await res.json();
+      const msg = data.choices?.[0]?.message || {};
       return {
-        content: data.choices?.[0]?.message?.content || "",
+        content: msg.content || "",
         usage: data.usage || null,
+        toolCalls: Array.isArray(msg.tool_calls) ? msg.tool_calls : null,
       };
     }
     return readSSE(res, onToken, messages);
@@ -101,6 +106,7 @@ export function createTokenHarborClient({
     let buffer = "";
     let full = "";
     let usage = null;
+    const toolCallsByIndex = new Map();
 
     while (true) {
       const { done, value } = await reader.read();
@@ -116,20 +122,43 @@ export function createTokenHarborClient({
         if (!payload || payload === "[DONE]") continue;
         try {
           const json = JSON.parse(payload);
-          // ✨ Capture usage dari chunk terakhir (stream_options.include_usage)
           if (json.usage) usage = json.usage;
-          const delta = json.choices?.[0]?.delta?.content || "";
-          if (delta) {
-            full += delta;
-            onToken?.(delta);
+
+          const choice = json.choices?.[0];
+          const delta = choice?.delta;
+
+          // Accumulate text
+          const textDelta = delta?.content || "";
+          if (textDelta) {
+            full += textDelta;
+            onToken?.(textDelta);
+          }
+
+          // Accumulate tool_calls (streamed incrementally)
+          if (Array.isArray(delta?.tool_calls)) {
+            for (const tc of delta.tool_calls) {
+              const i = tc.index ?? 0;
+              if (!toolCallsByIndex.has(i)) {
+                toolCallsByIndex.set(i, {
+                  id: tc.id || "",
+                  type: "function",
+                  function: { name: "", arguments: "" },
+                });
+              }
+              const entry = toolCallsByIndex.get(i);
+              if (tc.id) entry.id = tc.id;
+              if (tc.function?.name) entry.function.name += tc.function.name;
+              if (tc.function?.arguments)
+                entry.function.arguments += tc.function.arguments;
+            }
           }
         } catch {
-          /* skip malformed chunk */
+          /* skip malformed */
         }
       }
     }
 
-    // ✨ Fallback: estimasi kalau server tidak return usage
+    // Fallback usage estimation
     if (!usage) {
       const inputText = (originalMessages || [])
         .map((m) =>
@@ -144,7 +173,14 @@ export function createTokenHarborClient({
       };
     }
 
-    return { content: full, usage };
+    const toolCalls =
+      toolCallsByIndex.size > 0
+        ? Array.from(toolCallsByIndex.entries())
+            .sort((a, b) => a[0] - b[0])
+            .map((e) => e[1])
+        : null;
+
+    return { content: full, usage, toolCalls };
   }
 
   return { chat, model };

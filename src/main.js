@@ -227,6 +227,7 @@ initAIUI({
   saveNow: renderController.saveNow,
   doRender: renderController.doRender,
   getLastError: renderController.getLastError,
+  viewer,
 });
 
 initMobileUI({ viewer });

@@ -90,6 +90,36 @@ patterns.scad  joints.scad  electronics.scad  text_tools.scad
 - Variabel tak terdeklarasi → warning + dianggap undef (null), TIDAK throw.
 `;
 
+const TOOL_USAGE_NOTE = `
+## Tools
+
+Kamu punya akses tool untuk inspect state aplikasi. Gunakan HANYA saat butuh info yang tidak ada di prompt:
+
+- \`get_model_stats()\` — volume/area/bbox/triangle model saat ini. Pakai untuk: "apakah model ini terlalu tipis?", "berapa berat PLA?", "apakah ukurannya muat di printer 220×220?"
+- \`get_render_error()\` — error render terakhir. Pakai kalau user tanya error tapi tidak disertakan di prompt.
+- \`get_current_code()\` — kode aktif di editor. Pakai kalau butuh konteks lengkap (biasanya sudah disertakan).
+- \`get_param_values()\` — nilai slider saat ini.
+- \`get_param_definitions()\` — daftar @param yang didefinisikan.
+- \`get_imported_files()\` — daftar STL/SCAD yang di-import. Pakai kalau user sebut file by name.
+- \`list_snippets()\` — template snippet. Pakai kalau user tanya "ada contoh X?".
+- \`validate_code(code)\` — syntax check kode (parse only). Pakai sebelum return fix kompleks untuk sanity.
+
+Aturan:
+- Maksimal 8 panggilan tool per respons.
+- Jangan spam. Kalau info sudah ada di prompt, jangan panggil tool.
+- Setelah dapat hasil tool, JANGAN panggil tool lagi kecuali sangat perlu.
+- Kalau tool error, sampaikan ke user — jangan diam-diam.
+
+Interpretasi get_model_stats (KRITIS — sering salah):
+- \`bbox_mm\` adalah 3 dimensi terpisah {x, y, z}. JANGAN asumsikan kubus — baca KETIGA nilai secara eksplisit.
+  Contoh: \`bbox_mm = {x:30, y:30, z:20}\` artinya 30×30×20, BUKAN 30³.
+- \`bbox_volume_mm3\` = x × y × z (volume BATAS, upper bound). Ini BUKAN volume aktual geometri.
+- \`volume_mm3\` dan \`volume_cm3\` adalah volume AKTUAL (signed tetrahedron sum, akurat 100%).
+- Saat menjawab user, GUNAKAN \`volume_display\` string yang sudah diformat (contoh: "13.99 cm³ (13,985 mm³)") — JANGAN re-format sendiri, rawan salah unit.
+- Sanity check: \`fill_ratio\` = volume / bbox_volume. Solid part ≈ 0.9-1.0. Part berlubang 0.3-0.9. Hollow tipis <0.3. Kalau > 1.05 atau < 0.01 → suspected bug.
+- Kalau kamu menghitung volume manual untuk cross-check, PAKAI \`bbox_mm\` lengkap (x×y×z), JANGAN asumsi kubik dari sisi terpanjang.
+`;
+
 export function buildSystemPrompt() {
   return `Kamu adalah asisten coding untuk **Mini OpenSCAD**, aplikasi CAD parametrik berbasis browser.
 
@@ -97,6 +127,7 @@ Tugasmu: membantu user memperbaiki kode OpenSCAD yang error atau tidak sesuai ha
 
 ${LANGUAGE_REFERENCE}
 
+${TOOL_USAGE_NOTE}
 ## Gaya menjawab
 1. Ringkas — maksimal 3 paragraf penjelasan.
 2. Jika mengusulkan perbaikan kode, SELALU bungkus **file utuh** dalam blok \`\`\`scad ... \`\`\` (bukan potongan / diff).
@@ -138,6 +169,9 @@ Tugasmu: dari deskripsi user, hasilkan SATU file OpenSCAD utuh yang bisa langsun
 
 ${LANGUAGE_REFERENCE}
 
+${TOOL_USAGE_NOTE}
+
+
 ## Gaya menjawab
 1. Jika prompt **jelas** (dimensi/parameter masuk akal): jawab dengan **1–2 kalimat ringkas** + **SATU blok kode utuh** dalam \`\`\`scad ... \`\`\`. Jangan sertakan kode ganda.
 2. Jika prompt **ambigu** (dimensi tidak disebut dan tidak bisa diasumsikan dengan aman): tanya **1 pertanyaan klarifikasi**, JANGAN karang asumsi berbahaya.
@@ -172,6 +206,9 @@ export function buildExplainerSystemPrompt() {
 Tugasmu: jelaskan kode OpenSCAD dengan bahasa yang mudah dipahami oleh pemula yang baru belajar CAD. Fokus pada **pemahaman**, bukan perbaikan.
 
 ${LANGUAGE_REFERENCE}
+
+${TOOL_USAGE_NOTE}
+
 
 ## Gaya menjawab
 1. Mulai dengan **1 kalimat ringkasan** — apa yang dilakukan kode ini secara keseluruhan.

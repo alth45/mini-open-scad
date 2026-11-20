@@ -44,6 +44,10 @@ export function computeModelStats(root) {
     const idx = geo.index;
     const m = o.matrixWorld;
 
+    // ✨ Fix: mirrored/negatively-scaled meshes flip winding → signed volume negatif.
+    // Multiply by sign(det) → selalu kontribusi positif ke total volume.
+    const detSign = m.determinant() < 0 ? -1 : 1;
+
     const triCount = idx ? idx.count / 3 : pos.count / 3;
     stats.triangles += triCount;
     stats.vertices += pos.count;
@@ -66,7 +70,7 @@ export function computeModelStats(root) {
       cross.crossVectors(ab, ac);
       stats.area += cross.length() * 0.5;
 
-      signedVolume += vA.dot(cross) / 6;
+      signedVolume += (detSign * vA.dot(cross)) / 6;
     }
   });
 

@@ -1609,7 +1609,7 @@ export class Viewer {
        Blueprint capture (untuk PDF export)
        ============================================================ */
   captureViewForBlueprint(viewId, size = 1024, options = {}) {
-    const { technicalStyle = true } = options;
+    const { technicalStyle = true, withProjection = false } = options;
 
     const savedPos = this.camera.position.clone();
     const savedUp = this.camera.up.clone();
@@ -1687,8 +1687,14 @@ export class Viewer {
       offscreen.render(this.scene, this.camera);
       const dataUrl = offscreen.domElement.toDataURL("image/png");
 
+      // ✨ Compute projected bbox corners while camera masih set ke view ini
+      let projection = null;
+      if (withProjection) {
+        projection = this._computeBboxProjection(size);
+      }
+
       this._destroyOffscreen(offscreen);
-      return dataUrl;
+      return withProjection ? { dataUrl, projection } : dataUrl;
     } finally {
       // === RESTORE MATERIALS ===
       for (const { mesh, material } of savedMaterials) {
@@ -1722,6 +1728,41 @@ export class Viewer {
       if (this._measureGroup) this._measureGroup.visible = false;
       if (this._sectionIndicator) this._sectionIndicator.visible = true;
     }
+  }
+
+  _computeBboxProjection(captureSize) {
+    this.modelRoot.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(this.modelRoot);
+    if (box.isEmpty()) return null;
+
+    const corners3D = [
+      [box.min.x, box.min.y, box.min.z],
+      [box.max.x, box.min.y, box.min.z],
+      [box.max.x, box.max.y, box.min.z],
+      [box.min.x, box.max.y, box.min.z],
+      [box.min.x, box.min.y, box.max.z],
+      [box.max.x, box.min.y, box.max.z],
+      [box.max.x, box.max.y, box.max.z],
+      [box.min.x, box.max.y, box.max.z],
+    ];
+
+    const v = new THREE.Vector3();
+    const corners = corners3D.map(([x, y, z]) => {
+      v.set(x, y, z).project(this.camera);
+      return {
+        x: (v.x * 0.5 + 0.5) * captureSize,
+        y: (-v.y * 0.5 + 0.5) * captureSize,
+      };
+    });
+
+    return {
+      corners,
+      size: {
+        x: box.max.x - box.min.x,
+        y: box.max.y - box.min.y,
+        z: box.max.z - box.min.z,
+      },
+    };
   }
 
   toggleGrid() {

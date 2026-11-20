@@ -3,6 +3,19 @@ import { downloadBlob, timestampForFile } from "./utils.js";
 import * as THREE from "three";
 
 /**
+ * Mapping view → sumbu yang terlihat di screen (untuk dimension label).
+ * Iso tidak termasuk (silhouette terlalu kompleks untuk dim lines).
+ */
+const VIEW_AXIS_MAP = {
+  front: { h: "x", v: "z" },
+  back: { h: "x", v: "z" },
+  left: { h: "y", v: "z" },
+  right: { h: "y", v: "z" },
+  top: { h: "x", v: "y" },
+  bottom: { h: "x", v: "y" },
+};
+
+/**
  * Ekspor PDF Blueprint (Technical Drawing) - Full Orthographic + Isometric
  */
 export async function exportBlueprintPDF(viewer, tab, options = {}) {
@@ -131,9 +144,15 @@ export async function exportBlueprintPDF(viewer, tab, options = {}) {
     ];
 
     // --- 7. Render tiap view ---
+
     const renderSize = 600; // Lebih kecil karena panel lebih kecil
     for (const v of views) {
-      const dataUrl = viewer.captureViewForBlueprint(v.id, renderSize);
+      // ✨ Request projection bersama dengan capture
+      const captureResult = viewer.captureViewForBlueprint(v.id, renderSize, {
+        withProjection: true,
+      });
+      const dataUrl = captureResult.dataUrl || captureResult;
+      const projection = captureResult.projection || null;
 
       const x = startX + v.c * (panelW + gap);
       const y = startY + v.r * (panelH + gap);
@@ -155,7 +174,7 @@ export async function exportBlueprintPDF(viewer, tab, options = {}) {
       pdf.setFontSize(7);
       pdf.text(v.label, x + 1.5, y + 3.5);
 
-      // Dimensi
+      // Dimensi (header text)
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(6);
       pdf.text(v.dims, x + panelW - 1.5, y + 3.5, { align: "right" });
@@ -165,6 +184,25 @@ export async function exportBlueprintPDF(viewer, tab, options = {}) {
       const imgX = x + (panelW - imgSize) / 2;
       const imgY = y + 5 + (panelH - 5 - imgSize) / 2;
       pdf.addImage(dataUrl, "PNG", imgX, imgY, imgSize, imgSize);
+
+      // ✨ Dimension lines (ortho views only)
+      if (projection) {
+        drawViewDimensions(
+          pdf,
+          v.id,
+          projection,
+          {
+            imgX,
+            imgY,
+            imgSize,
+            panelX: x,
+            panelY: y,
+            panelW,
+            panelH,
+          },
+          renderSize,
+        );
+      }
 
       // Corner marks
       const markSize = 2;
@@ -273,5 +311,163 @@ export async function exportBlueprintPDF(viewer, tab, options = {}) {
   } catch (e) {
     console.error("[pdf]", e);
     return { ok: false, error: e.message };
+  }
+
+  /* ============================================================
+   Dimension Lines (2D vector overlay)
+   ============================================================ */
+
+  function drawViewDimensions(pdf, viewId, projection, layout, captureSize) {
+    const axisMap = VIEW_AXIS_MAP[viewId];
+    if (!axisMap) return; // iso: skip
+
+    const { imgX, imgY, imgSize, panelX, panelY, panelW, panelH } = layout;
+    const scale = imgSize / captureSize;
+
+    // Project 8 corners ke PDF coords
+    const corners = projection.corners.map((c) => ({
+      x: imgX + c.x * scale,
+      y: imgY + c.y * scale,
+    }));
+
+    // Screen bounds
+    let sMinX = Infinity,
+      sMaxX = -Infinity,
+      sMinY = Infinity,
+      sMaxY = -Infinity;
+    for (const c of corners) {
+      if (c.x < sMinX) sMinX = c.x;
+      if (c.x > sMaxX) sMaxX = c.x;
+      if (c.y < sMinY) sMinY = c.y;
+      if (c.y > sMaxY) sMaxY = c.y;
+    }
+
+    const wDim = projection.size[axisMap.h];
+    const hDim = projection.size[axisMap.v];
+    if (wDim < 0.5 && hDim < 0.5) return;
+
+    // Layout params (mm)
+    const gap = 1.0; // gap antara model dan extension line
+    const offset = 5.0; // jarak dimension line dari model
+    const overshoot = 1.2; // ekstensi melewati dim line
+    const arrowLen = 1.4; // panjang arrow
+    const arrowHalf = 0.5; // setengah lebar arrow
+    const labelSize = 5.5;
+
+    pdf.setDrawColor(40, 40, 40);
+    pdf.setFillColor(40, 40, 40);
+    pdf.setLineWidth(0.15);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(labelSize);
+    pdf.setTextColor(40, 40, 40);
+
+    const hY = sMaxY + offset; // horizontal dim line Y (di bawah model)
+    const vX = sMaxX + offset; // vertical dim line X (di kanan model)
+
+    // Panel clip check — jangan keluar border panel
+    const minClipX = panelX + 0.5;
+    const maxClipX = panelX + panelW - 0.5;
+    const minClipY = panelY + 5.5;
+    const maxClipY = panelY + panelH - 0.5;
+
+    // ============ HORIZONTAL DIMENSION (bottom) ============
+    if (wDim >= 0.5) {
+      const hDimLineY = Math.min(hY, maxClipY - 1.5);
+
+      // Extension lines
+      pdf.line(sMinX, sMaxY + gap, sMinX, hDimLineY + overshoot);
+      pdf.line(sMaxX, sMaxY + gap, sMaxX, hDimLineY + overshoot);
+
+      // Dimension line
+      pdf.line(sMinX, hDimLineY, sMaxX, hDimLineY);
+
+      // Arrows
+      drawArrow(pdf, sMinX, hDimLineY, "left", arrowLen, arrowHalf);
+      drawArrow(pdf, sMaxX, hDimLineY, "right", arrowLen, arrowHalf);
+
+      // Label
+      const labelY = hDimLineY - 0.8;
+      if (labelY > minClipY) {
+        pdf.text(`${wDim.toFixed(1)}`, (sMinX + sMaxX) / 2, labelY, {
+          align: "center",
+          baseline: "bottom",
+        });
+      }
+    }
+
+    // ============ VERTICAL DIMENSION (right) ============
+    if (hDim >= 0.5) {
+      const vDimLineX = Math.min(vX, maxClipX - 1.5);
+
+      // Extension lines
+      pdf.line(sMaxX + gap, sMinY, vDimLineX + overshoot, sMinY);
+      pdf.line(sMaxX + gap, sMaxY, vDimLineX + overshoot, sMaxY);
+
+      // Dimension line
+      pdf.line(vDimLineX, sMinY, vDimLineX, sMaxY);
+
+      // Arrows (up at top, down at bottom)
+      drawArrow(pdf, vDimLineX, sMinY, "up", arrowLen, arrowHalf);
+      drawArrow(pdf, vDimLineX, sMaxY, "down", arrowLen, arrowHalf);
+
+      // Rotated label
+      const labelX = vDimLineX + 1.0;
+      if (labelX < maxClipX) {
+        pdf.text(`${hDim.toFixed(1)}`, labelX, (sMinY + sMaxY) / 2, {
+          align: "center",
+          baseline: "bottom",
+          angle: 90,
+        });
+      }
+    }
+  }
+
+  function drawArrow(pdf, x, y, direction, len, halfWidth) {
+    let pts;
+    switch (direction) {
+      case "right":
+        // Tip at (x,y), body extends left
+        pts = [
+          [x, y],
+          [x - len, y - halfWidth],
+          [x - len, y + halfWidth],
+        ];
+        break;
+      case "left":
+        // Tip at (x,y), body extends right
+        pts = [
+          [x, y],
+          [x + len, y - halfWidth],
+          [x + len, y + halfWidth],
+        ];
+        break;
+      case "up":
+        // Tip at (x,y), body extends down
+        pts = [
+          [x, y],
+          [x - halfWidth, y + len],
+          [x + halfWidth, y + len],
+        ];
+        break;
+      case "down":
+        // Tip at (x,y), body extends up
+        pts = [
+          [x, y],
+          [x - halfWidth, y - len],
+          [x + halfWidth, y - len],
+        ];
+        break;
+      default:
+        return;
+    }
+    pdf.triangle(
+      pts[0][0],
+      pts[0][1],
+      pts[1][0],
+      pts[1][1],
+      pts[2][0],
+      pts[2][1],
+      "F",
+    );
   }
 }

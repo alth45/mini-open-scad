@@ -6,6 +6,7 @@ import {
   buildExplainerSystemPrompt,
   buildExplainerUserMessage,
 } from "./ai-context.js";
+import { chatWithTools } from "./ai-orchestrator.js";
 
 // Tangkap ```scad, ```openscad, atau ``` (bare)
 const SCAD_BLOCK_RE = /```(?:scad|openscad)?\s*\n([\s\S]*?)```/g;
@@ -25,7 +26,18 @@ export function extractScadBlock(text) {
  */
 export async function askFixer(
   client,
-  { code, error, question, history, onToken, signal },
+  {
+    code,
+    error,
+    question,
+    history,
+    onToken,
+    signal,
+    tools,
+    toolExecutor,
+    onToolCall,
+    onUsage,
+  },
 ) {
   const messages = [
     { role: "system", content: buildSystemPrompt() },
@@ -33,13 +45,31 @@ export async function askFixer(
     { role: "user", content: buildUserMessage({ code, error, question }) },
   ];
 
+  if (Array.isArray(tools) && tools.length > 0 && toolExecutor) {
+    const { content, usage, toolTrace } = await chatWithTools(client, {
+      messages,
+      tools,
+      toolExecutor,
+      onToken,
+      onToolCall,
+      onUsage,
+      signal,
+      maxTokens: 8192,
+    });
+    return {
+      reply: content,
+      proposedCode: extractScadBlock(content),
+      usage,
+      toolTrace,
+    };
+  }
+
   const { content, usage } = await client.chat(messages, {
     stream: true,
     onToken,
     signal,
     maxTokens: 8192,
   });
-
   return { reply: content, proposedCode: extractScadBlock(content), usage };
 }
 
@@ -49,7 +79,17 @@ export async function askFixer(
  */
 export async function askGenerator(
   client,
-  { prompt, existingCode, history, onToken, signal },
+  {
+    prompt,
+    existingCode,
+    history,
+    onToken,
+    signal,
+    tools,
+    toolExecutor,
+    onToolCall,
+    onUsage,
+  },
 ) {
   const messages = [
     { role: "system", content: buildGeneratorSystemPrompt() },
@@ -60,13 +100,31 @@ export async function askGenerator(
     },
   ];
 
+  if (Array.isArray(tools) && tools.length > 0 && toolExecutor) {
+    const { content, usage, toolTrace } = await chatWithTools(client, {
+      messages,
+      tools,
+      toolExecutor,
+      onToken,
+      onToolCall,
+      onUsage,
+      signal,
+      maxTokens: 8192,
+    });
+    return {
+      reply: content,
+      proposedCode: extractScadBlock(content),
+      usage,
+      toolTrace,
+    };
+  }
+
   const { content, usage } = await client.chat(messages, {
     stream: true,
     onToken,
     signal,
     maxTokens: 8192,
   });
-
   return { reply: content, proposedCode: extractScadBlock(content), usage };
 }
 
@@ -76,13 +134,40 @@ export async function askGenerator(
  */
 export async function askExplainer(
   client,
-  { code, question, history, onToken, signal },
+  {
+    code,
+    question,
+    history,
+    onToken,
+    signal,
+    tools,
+    toolExecutor,
+    onToolCall,
+    onUsage,
+  },
 ) {
   const messages = [
     { role: "system", content: buildExplainerSystemPrompt() },
     ...(history || []),
-    { role: "user", content: buildExplainerUserMessage({ code, question }) },
+    {
+      role: "user",
+      content: buildExplainerUserMessage({ code, question }),
+    },
   ];
+
+  if (Array.isArray(tools) && tools.length > 0 && toolExecutor) {
+    const { content, usage, toolTrace } = await chatWithTools(client, {
+      messages,
+      tools,
+      toolExecutor,
+      onToken,
+      onToolCall,
+      onUsage,
+      signal,
+      maxTokens: 4096,
+    });
+    return { reply: content, usage, toolTrace };
+  }
 
   const { content, usage } = await client.chat(messages, {
     stream: true,
@@ -90,6 +175,5 @@ export async function askExplainer(
     signal,
     maxTokens: 4096,
   });
-
   return { reply: content, usage };
 }
