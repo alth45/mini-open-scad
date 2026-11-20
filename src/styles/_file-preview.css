@@ -1,0 +1,136 @@
+/* ---------- FILES MANAGER — SPLIT + PREVIEW ---------- */
+#filesModal .modal {
+  max-width: 760px;
+  width: calc(100vw - 32px);
+}
+
+.files-split {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 12px;
+  min-height: 260px;
+}
+
+.files-preview {
+  background: var(--card-subtle);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  min-height: 240px;
+  overflow: hidden;
+}
+
+.fp-empty {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--muted);
+}
+.fp-empty-icon {
+  font-size: 36px;
+  opacity: 0.5;
+}
+.fp-empty-text {
+  font-size: 12px;
+}
+
+.fp-loading {
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.fp-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.fp-thumb {
+  width: 100%;
+  height: auto;
+  max-height: 210px;
+  object-fit: contain;
+  background: #1e1e1e;
+  border-bottom: 1px solid var(--border);
+  display: block;
+}
+
+.fp-code {
+  margin: 0;
+  padding: 10px 12px;
+  font: 10.5px/1.5 var(--mono);
+  color: #b5cea8;
+  background: var(--viewport-bg);
+  overflow: auto;
+  flex: 1 1 auto;
+  max-height: 230px;
+  white-space: pre;
+}
+
+.fp-error {
+  padding: 20px 14px;
+  color: var(--err);
+  font-size: 12px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.fp-meta {
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  word-break: break-word;
+  flex-shrink: 0;
+}
+.fp-meta b {
+  color: var(--text);
+}
+
+/* Selected file highlight */
+.files-item.active {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: var(--accent);
+}
+
+/* Light theme */
+[data-theme="light"] .files-item.active {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: #2563eb;
+}
+[data-theme="light"] .fp-thumb {
+  background: #ebebf0;
+}
+[data-theme="light"] .fp-error {
+  color: #b91c1c;
+}
+
+/* Mobile: stack vertically */
+@media (max-width: 768px) {
+  #filesModal .modal {
+    width: calc(100vw - 16px);
+  }
+  .files-split {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+  .files-preview {
+    min-height: 180px;
+  }
+  .fp-thumb {
+    max-height: 160px;
+  }
+  .fp-code {
+    max-height: 160px;
+    font-size: 10px;
+  }
+}

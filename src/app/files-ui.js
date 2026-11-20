@@ -1,4 +1,11 @@
-import { saveFile, listFiles, deleteFile } from "../files/file-store.js";
+import {
+  saveFile,
+  listFiles,
+  loadFiles,
+  deleteFile,
+} from "../files/file-store.js";
+import { createFilePreview } from "../ui/file-preview.js";
+
 import { log } from "../ui/console.js";
 import { toast } from "../ui/status.js";
 
@@ -8,6 +15,44 @@ export function initFilesUI(deps) {
   const filesInput = document.getElementById("filesInput");
   const filesListEl = document.getElementById("filesList");
   const dropOverlay = document.getElementById("dropOverlay");
+
+  // ✨ Wrap list + preview dalam split layout
+  const splitWrap = document.createElement("div");
+  splitWrap.className = "files-split";
+  filesListEl.parentElement.insertBefore(splitWrap, filesListEl);
+  splitWrap.appendChild(filesListEl);
+
+  const previewEl = document.createElement("div");
+  previewEl.id = "filesPreview";
+  previewEl.className = "files-preview";
+  splitWrap.appendChild(previewEl);
+
+  const filePreview = createFilePreview(previewEl);
+  let selectedFileName = null;
+
+  async function previewFile(f) {
+    try {
+      const buffers = await loadFiles([f.name]);
+      const buffer = buffers[f.name];
+      if (!buffer) {
+        log("warn", "Gagal load file: " + f.name);
+        return;
+      }
+      selectedFileName = f.name;
+      await filePreview.show({
+        name: f.name,
+        size: f.size,
+        buffer,
+        type: f.type,
+      });
+      // Highlight selected card
+      filesListEl.querySelectorAll(".files-item").forEach((el) => {
+        el.classList.toggle("active", el.dataset.name === f.name);
+      });
+    } catch (e) {
+      log("error", "Preview gagal: " + e.message);
+    }
+  }
 
   document.getElementById("btnFiles").addEventListener("click", () => {
     filesModal.classList.remove("hidden");
@@ -131,6 +176,7 @@ export function initFilesUI(deps) {
         const isBundled = BUNDLED_LIBS.includes(f.name);
         const el = document.createElement("div");
         el.className = "files-item" + (isBundled ? " files-item-bundled" : "");
+        el.dataset.name = f.name;
 
         // Badge berbeda: LIB (bundled), SCAD, atau STL
         let badge;
@@ -181,16 +227,40 @@ export function initFilesUI(deps) {
         if (!isBundled) {
           el.querySelector(".files-delete").addEventListener(
             "click",
-            async () => {
+            async (e) => {
+              e.stopPropagation();
               if (!confirm(`Hapus file '${f.name}'?`)) return;
               await deleteFile(f.name);
+              if (selectedFileName === f.name) {
+                selectedFileName = null;
+                filePreview.clear();
+              }
               await refreshFilesList();
               scheduleAutoRender();
             },
           );
         }
 
+        // ✨ Click card → preview
+        el.addEventListener("click", (e) => {
+          if (e.target.closest("button")) return; // ignore button clicks
+          previewFile(f);
+        });
+
         filesListEl.appendChild(el);
+      }
+      // ✨ Re-apply selected highlight + clear stale preview
+      if (selectedFileName) {
+        const found = files.find((f) => f.name === selectedFileName);
+        if (found) {
+          const sel = filesListEl.querySelector(
+            `[data-name="${CSS.escape(selectedFileName)}"]`,
+          );
+          if (sel) sel.classList.add("active");
+        } else {
+          selectedFileName = null;
+          filePreview.clear();
+        }
       }
     } catch (err) {
       log("error", "Gagal list files: " + err.message);
