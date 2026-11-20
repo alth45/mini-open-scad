@@ -2,8 +2,8 @@
 
 > ← Kembali ke [README utama](../README.md) · Lihat juga [rencana-arsitektur-robust.md](./rencana-arsitektur-robust.md) (audit & roadmap)
 
-**Versi dokumen:** 2.0 · **Terakhir diupdate:** 2025-11-17
-**Cakupan:** Fase 0–8 (Safety Net → AI Copilot → Editor Intelligence → Content & Reference)
+**Versi dokumen:** 2.1 · **Terakhir diupdate:** 2026-11-20
+**Cakupan:** Fase 0–9 (Safety Net → AI Copilot → Editor Intelligence → Content & Reference → Cloud, PWA & Mobile)
 
 ---
 
@@ -11,17 +11,19 @@
 
 ```
 mini-open-scad/
-├── index.html                    # Entry HTML
+├── index.html                    # Entry HTML (+ meta PWA)
 ├── .github/workflows/ci.yml      # GitHub Actions CI (build + test)
 ├── public/
+│   ├── manifest.json             # PWA web manifest
 │   ├── manifold.wasm             # WebAssembly CSG engine
-│   ├── fonts/                    # NotoSansJP-Regular.ttf (CJK)
+│   ├── icon.svg + *.png          # PWA icons, favicon, screenshots
 │   └── libraries/                # Bundled libs (gears.scad, dll)
 ├── src/
 │   ├── main.js                   # Composition Root (~11 KB) — wiring saja
 │   ├── api.js                    # Public API stabil (test/integrasi)
-│   ├── config.js                 # CONFIG + TIME_BUDGET + AI_CONFIG + PRESETS
+│   ├── config.js                 # CONFIG + TIME_BUDGET + AI_CONFIG + CLOUD_CONFIG + PRESETS
 │   ├── state.js                  # Facade @deprecated → store/app-store.js
+│   ├── storage.js                # localStorage: tabs + tema (migrasi v1→v2→v3 + auto-backup)
 │   ├── utils.js                  # SCADError, helpers
 │   ├── format.js                 # Auto-formatter OpenSCAD
 │   ├── share.js                  # encode/decode share URL (versioned)
@@ -59,9 +61,7 @@ mini-open-scad/
 │   │   ├── model.js              # buildModel (+AST cache), serialisasi
 │   │   ├── model.test.js         # Golden test 8 preset
 │   │   ├── model-stats.js        # ✨ [Fase 8] Volume/area/weight PLA
-│   │   ├── image-overlay.js      # ✨ [Fase 8] Reference plane di scene
-│   │   └── image-sync.js         # ✨ [Fase 8] Per-tab IDB persistence
-│   │
+│   │   │
 │   ├── worker/                   # Web Worker (persistent)
 │   │   ├── eval-worker.js        # Init sekali, loop render berulang
 │   │   └── worker-client.js      # requestId protocol + watchdog
@@ -69,13 +69,24 @@ mini-open-scad/
 │   ├── files/                    # Storage layer
 │   │   ├── file-store.js         # STL/SCAD IDB (+QuotaExceeded handler)
 │   │   ├── image-store.js        # ✨ [Fase 8] Reference image IDB
-│   │   └── bundled-libs.js       # Auto-load .scad bawaan
+│   │   ├── bundled-libs.js       # Auto-load .scad bawaan
+│   │   ├── cloud-storage.js      # ☁️ Cloudinary backup (snapshot per tab + restore)
+│   │   ├── preset-store.js       # 💾 Preset parameter per tab (IndexedDB)
+│   │   ├── gzip-utils.js         # Kompresi gzip/base64 (backup + share)
+│   │   ├── dxf-to-polygon.js     # Import DXF → polygon
+│   │   ├── svg-to-polygon.js     # Import SVG → polygon
+│   │   ├── vector-to-code.js     # Konversi vektor → kode SCAD
+│   │   └── file-thumbnail.js     # Thumbnail preview file
 │   │
 │   ├── ai/                       # ✨ [Fase 6] AI Copilot (TokenHarbor)
 │   │   ├── tokenharbor-client.js # API client + SSE stream parser
 │   │   ├── ai-context.js         # System prompts: fix / generate / explain
 │   │   ├── code-fixer.js         # askFixer + askGenerator + askExplainer
-│   │   └── diff.js               # LCS line-based diff (pure)
+│   │   ├── diff.js               # LCS line-based diff (pure)
+│   │   └── token-tracker.js      # 🪙 Rate limit (60/menit, 1800/jam) + biaya
+│   │
+│   ├── utils/                    # Utilitas turunan
+│   │   └── suggest.js            # Fuzzy suggest ("did you mean?")
 │   │
 │   ├── ui/                       # Komponen UI murni
 │   │   ├── editor.js
@@ -90,7 +101,9 @@ mini-open-scad/
 │   │   ├── profiler-panel.js
 │   │   ├── autocomplete.js       # ✨ [Fase 7] Popup keyword/module
 │   │   ├── code-outline.js       # ✨ [Fase 7] Symbol panel (jump-to-line)
-│   │   └── snippets-data.js      # ✨ [Fase 8] 18 template snippet
+│   │   ├── snippets-data.js      # ✨ [Fase 8] 18 template snippet
+│   │   ├── file-preview.js       # Pratinjau file import
+│   │   └── token-widget.js       # 🪙 Widget statistik AI (token/biaya)
 │   │
 │   ├── app/                      # ✨ [Fase 2] Composition modules
 │   │   ├── error-boundary.js     # Global error handler (safety net)
@@ -109,13 +122,23 @@ mini-open-scad/
 │   │   ├── export-ui.js          # Export dropdown (STL/SCAD/3MF/PDF/dll)
 │   │   ├── ai-ui.js              # ✨ [Fase 6] Modal Fix/Generate/Explain
 │   │   ├── snippet-ui.js         # ✨ [Fase 8] Modal Library
-│   │   └── image-ui.js           # ✨ [Fase 8] Panel Reference Image
+│   │   ├── image-ui.js           # ✨ [Fase 8] Panel Reference Image
+│   │   ├── cloud-backup-ui.js    # ☁️ Panel Cloudinary (backup/restore/export/import)
+│   │   ├── import-vector-ui.js   # 📥 Import SVG/DXF ke editor
+│   │   ├── preset-ui.js          # 💾 Panel preset parameter per tab
+│   │   ├── mobile-ui.js          # 📱 UI mobile (tab bar + menu More)
+│   │   └── pwa.js                # 📲 PWA: SW register, install prompt, offline
 │   │
 │   ├── export.js                 # STL, 3MF, OBJ, GLB, glTF, PLY
 │   ├── export-2d.js              # SVG & DXF
 │   ├── export-pdf.js             # PDF Blueprint (technical drawing)
 │   ├── project-backup.js         # Save/Load project .zip
-│   └── styles.css
+│   ├── styles.css                # Impor semua partial CSS
+│   │
+│   ├── styles/                   # CSS partials (_base, _layout, _ai, _pwa, _cloud, dll)
+│   │
+│   └── assets/
+│       └── fonts/                # helvetiker_regular/bold.typeface.json (Three.js)
 │
 ├── docs-md/                      # Dokumentasi Markdown
 ├── docs-html/                    # Dokumentasi HTML interaktif
@@ -126,7 +149,7 @@ mini-open-scad/
 
 ## ⚡ Design Principles
 
-> Arsitektur dibangun di atas **12 prinsip**. Prinsip 1–5 adalah fondasi awal; 6–9 hasil audit Fase 0–5; 10–12 adalah kontrak baru dari integrasi AI, editor intelligence, dan fitur visual (Fase 6–8).
+> Arsitektur dibangun di atas **13 prinsip**. Prinsip 1–5 adalah fondasi awal; 6–9 hasil audit Fase 0–5; 10–12 adalah AI, editor intelligence, dan fitur visual (Fase 6–8); 13 adalah cloud sync, PWA, dan mobile (Fase 9).
 
 ---
 
@@ -310,6 +333,21 @@ Semua fitur baru **opt-in** dan **tidak memblokir** fitur lama. Kalau user tidak
 
 ---
 
+### 13. Offline-First & Cloud Sync (PWA) ✨
+
+Aplikasi berjalan sepenuhnya offline setelah first load, dengan opsi sinkronisasi cloud berbasis user consent.
+
+| Aspek               | Implementasi                                                          |
+| :------------------ | :-------------------------------------------------------------------- |
+| 📲 PWA              | Service Worker (vite-plugin-pwa) + install prompt + update banner     |
+| 📴 Offline          | Semua aset di-cache; worker + render berjalan tanpa jaringan          |
+| ☁️ Cloud Backup     | Cloudinary unsigned upload — snapshot per tab, index di localStorage  |
+| 🔐 Consent          | Backup tidak otomatis ke cloud tanpa aksi user; tidak ada secret di bundle |
+| 📱 Mobile           | Tab bar diperbaiki + menu "More" (⋮) untuk layar ≤ 768px              |
+| 🪙 Token tracking   | Rate limit AI (60/menit, 1800/jam) + biaya per model disimpan lokal   |
+
+---
+
 ### 12. User Consent for Destructive Actions (Fase 6) ✨
 
 AI dan tools **tidak pernah mengganti kode tanpa review**.
@@ -340,6 +378,7 @@ Dokumen lengkap audit & roadmap ada di [rencana-arsitektur-robust.md](./rencana-
 | **6** | **AI Copilot**            |   ✅   | TokenHarbor + Fix/Generate/Explain + Diff view |
 | **7** | **Editor Intelligence**   |   ✅   | Autocomplete + Code Outline                    |
 | **8** | **Content & Reference**   |   ✅   | Snippet Library + Image Overlay + Model Stats  |
+| **9** | **Cloud, PWA & Mobile**   | 🚀   | Cloudinary backup + PWA offline + Mobile UI + Token tracker + Preset per tab |
 
 ### Pencapaian Terukur
 
@@ -353,8 +392,8 @@ Dokumen lengkap audit & roadmap ada di [rencana-arsitektur-robust.md](./rencana-
 | Error async            |   Hilang diam   |                                 **Error Boundary**                                 |
 | State mutation         |    Tersebar     |                               **Frozen + dispatch**                                |
 | Storage schema         | Tidak versioned |                                **v3 + auto-backup**                                |
-| Modul `app/*`          |       10        |                **14** (+ai-ui, +snippet-ui, +image-ui, +image-sync)                |
-| UI features            |       10        | **18** (+AI, +autocomplete, +outline, +snippet, +image, +stats, +diff, +generator) |
+| Modul `app/*`          |       10        | **22** (+cloud-backup-ui, +import-vector-ui, +preset-ui, +mobile-ui, +pwa dan lainnya) |
+| UI features            |       10        | **20+** (+AI, +autocomplete, +outline, +snippet, +image, +stats, +cloud backup, +preset, +mobile, +PWA) |
 | AI capabilities        |        —        |                       **3 mode** (Fix · Generate · Explain)                        |
 
 ---
@@ -515,6 +554,71 @@ flowchart TB
 
 ---
 
+## ☁️ Cloud Backup & Sync Layer (Fase 9)
+
+Backup snapshot per tab ke **Cloudinary** (unsigned upload → tidak ada secret di bundle). Setiap save = file baru dengan timestamp; index versi disimpan di localStorage (maks 20 versi/tab).
+
+```mermaid
+flowchart TB
+    subgraph App["💻 App (cloud-backup-ui.js)"]
+        BTN["☁ Tombol Backup"] + PANEL["Panel riwayat per tab"]
+    end
+
+    subgraph Local["💾 Local (IndexedDB + localStorage)"]
+        PS[("preset-store.js<br/>preset per tab")]
+        IDX[("cloud-backup-index<br/>maks 20 versi/tab")]
+    end
+
+    subgraph Cloud["☁️ Cloudinary (unsigned)"]
+        UP[("Snapshot JSON<br/>code gzip + meta")]
+    end
+
+    BTN -->|"backupTab(tab)"| UP
+    UP -->|"entry.codeUrl/metaUrl"| IDX
+    PANEL -->|"restoreFromUrls()"| UP
+    UP -->|"createTab()"| PS
+    PANEL -->|"export/import bundle"| DL[("Unduh .json bundle")]
+
+    style App fill:#e3f2fd,stroke:#1976d2,color:#000
+    style Local fill:#fff9c4,stroke:#f9a825,color:#000
+    style Cloud fill:#f3e5f5,stroke:#8e24aa,color:#000
+```
+
+**Jaminan keamanan:**
+- Tidak ada API key di bundle — upload pakai `upload_preset` Cloudinary (unsigned).
+- Setiap upload = file baru (`public_id` ber-timestamp), tidak overwrite.
+- Restore → tab baru (+ migrasi preset ke tabId baru), tidak menimpa tab aktif.
+- Bundle export/import memungkinkan pindah antar device.
+
+---
+
+## 🪙 Token Tracking & Rate Limit (AI)
+
+`src/ai/token-tracker.js` mencatat setiap request AI di localStorage (`mini-openscad-ai-stats`):
+
+| Metrik              | Detail                                                          |
+| :------------------ | :-------------------------------------------------------------- |
+| Rate limit          | 60 request/menit, 1800 request/jam (TokenHarbor free tier)      |
+| Penyimpanan         | Rolling window 60s / 3600s; breakdown per hari (30 hari terakhir) |
+| Biaya               | Estimasi USD per model (deepseek-v4.1-flash dll.)               |
+| Reset               | Manual via `resetStats()`                                       |
+| Tampilan            | `ui/token-widget.js` — ringkas token + biaya di UI              |
+
+---
+
+## 💾 Preset Parameter per Tab
+
+`src/files/preset-store.js` (IndexedDB `mini-openscad-presets`) menyimpan daftar preset parameter (`{name, values, createdAt, updatedAt}`) per `tabId`. Preset ikut disertakan dalam cloud backup snapshot dan dapat dipulihkan bersama tab.
+
+---
+
+## 📱 PWA & Mobile UI
+
+- **PWA** (`src/app/pwa.js`): Service Worker terdaftar dengan update check per jam, tombol Install, banner versi baru, indikator online/offline.
+- **Mobile** (`src/app/mobile-ui.js`): Tab bar Code/3D/Console diperbaiki; tombol jarang dipakai dipindah ke menu "More" (⋮) pada layar ≤ 768px.
+
+---
+
 ## 🛡️ Contract & Boundary Rules
 
 Ringkasan lintas-batas yang **wajib** dijaga:
@@ -527,6 +631,9 @@ Ringkasan lintas-batas yang **wajib** dijaga:
 | **Image → Model**          | Tidak ada (terpisah)                       | Reference image di `modelRoot`         |
 | **AI key**                 | `localStorage` user                        | Bundled code, Git repo, shared URL     |
 | **Render output → Export** | `viewer.modelRoot`                         | `viewer.imageOverlay`, `_measureGroup` |
+| **Cloud Backup → App**     | JSON snapshot via `restoreFromUrls()`      | File mentah di luar skema snapshot     |
+| **App → Cloudinary**       | Snapshot ter-encode (code + meta + presets)| `upload_preset` / secret API key       |
+| **AI Tracker → localStorage**| Statistik token + biaya per hari         | Isi prompt atau kode ASLI user         |
 
 ---
 
