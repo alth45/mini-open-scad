@@ -20,6 +20,12 @@
           <a href="app-services.html#exporters">Exporters (3D &amp; 2D)</a>
           <a href="app-services.html#storage">Storage &amp; Backup</a>
           <a href="app-services.html#share">Share via URL</a>
+          <a href="app-services.html#cloud">Cloud Backup & Sync</a>
+          <a href="app-services.html#presets">Preset Parameter per Tab</a>
+          <a href="app-services.html#token-tracker">Token Tracker AI</a>
+          <a href="app-services.html#pwa">PWA & Offline</a>
+          <a href="app-services.html#mobile">Mobile UI</a>
+          <a href="app-services.html#import-vector">Import SVG/DXF</a>
         </nav>
       </aside>
       <main class="content">
@@ -238,6 +244,136 @@
             Membaca hash URL (<code>#s=...</code>). Jika ada, akan mendekode
             project dan memuatnya sebagai tab baru saat aplikasi dibuka.
           </div>
+        <h2 id="cloud">6. Cloud Backup & Sync (<code>src/files/cloud-storage.js</code>)</h2>
+        <p>Backup snapshot per tab ke Cloudinary (unsigned upload — tidak ada secret di bundle). Setiap save = file baru dengan timestamp; index versi disimpan di localStorage (maks 20 versi/tab).</p>
+
+        <div class="fn">
+          <div class="fn-head"><span class="fn-name">backupTab(tab)</span><span class="fn-kind kind-fn">async function</span></div>
+          <div class="fn-sig">(tab) → Promise&lt;{ codeUrl, metaUrl, size, deleteToken }&gt;</div>
+          <div class="fn-desc">Mengupload snapshot tab (kode gzip + meta + presets) ke Cloudinary. Menggunakan <code>upload_preset</code> (unsigned), sehingga tidak membutuhkan API key di bundle.</div>
+        </div>
+
+        <div class="fn">
+          <div class="fn-head"><span class="fn-name">restoreFromUrls(params)</span><span class="fn-kind kind-fn">async function</span></div>
+          <div class="fn-sig">({ url } | { codeUrl, metaUrl }) → Promise&lt;tabData&gt;</div>
+          <div class="fn-desc">Mengembalikan tab dari URL Cloudinary. Mendukung format gabungan (JSON dengan code terkompresi) dan format legacy (2 file terpisah). Hasilnya dibuat sebagai tab baru, tidak menimpa tab aktif.</div>
+        </div>
+
+        <div class="fn">
+          <div class="fn-head"><span class="fn-name">deleteByToken(deleteToken)</span><span class="fn-kind kind-fn">async function</span></div>
+          <div class="fn-sig">(token: string) → Promise&lt;{ ok, error? }&gt;</div>
+          <div class="fn-desc">Menghapus file di Cloudinary melalui delete_token (valid 10 menit setelah upload). Setelah itu, hapus manual di dashboard Cloudinary.</div>
+        </div>
+
+        <div class="fn">
+          <div class="fn-head"><span class="fn-name">exportBackupBundle()</span><span class="fn-kind kind-fn">function</span></div>
+          <div class="fn-desc">Mengekspor seluruh riwayat backup sebagai file JSON untuk dipindahkan antar device.</div>
+        </div>
+
+        <div class="fn">
+          <div class="fn-head"><span class="fn-name">importBackupBundle(jsonText)</span><span class="fn-kind kind-fn">function</span></div>
+          <div class="fn-sig">(jsonText: string) → { merged, totalTabs }</div>
+          <div class="fn-desc">Mengimpor bundle backup dan merge ke index lokal.</div>
+        </div>
+
+        <div class="callout warn">
+          <b>Keamanan:</b> Tidak ada API key di bundle. Upload pakai <code>upload_preset</code> Cloudinary (unsigned). Setiap upload = file baru dengan <code>public_id</code> ber-timestamp, tidak overwrite.
+        </div>
+
+        <h2 id="presets">7. Preset Parameter per Tab (<code>src/files/preset-store.js</code>)</h2>
+        <p>IndexedDB (<code>mini-openscad-presets</code>) menyimpan daftar preset parameter (<code>{name, values, createdAt, updatedAt}</code>) per <code>tabId</code>. Preset ikut disertakan dalam cloud backup snapshot dan dapat dipulihkan bersama tab.</p>
+
+        <div class="fn">
+          <div class="fn-head"><span class="fn-name">loadPresets(tabId)</span><span class="fn-kind kind-fn">async function</span></div>
+          <div class="fn-sig">(tabId: string) → Promise&lt;Array&lt;{name, values, createdAt, updatedAt}&gt;&gt;</div>
+          <div class="fn-desc">Memuat daftar preset parameter untuk tab tertentu.</div>
+        </div>
+
+        <div class="fn">
+          <div class="fn-head"><span class="fn-name">savePresets(tabId, presets)</span><span class="fn-kind kind-fn">async function</span></div>
+          <div class="fn-sig">(tabId: string, presets: Array) → Promise&lt;void&gt;</div>
+          <div class="fn-desc">Menyimpan daftar preset parameter untuk tab tertentu.</div>
+        </div>
+
+        <div class="fn">
+          <div class="fn-head"><span class="fn-name">deleteAllPresets(tabId)</span><span class="fn-kind kind-fn">async function</span></div>
+          <div class="fn-sig">(tabId: string) → Promise&lt;void&gt;</div>
+          <div class="fn-desc">Menghapus semua preset untuk tab tertentu.</div>
+        </div>
+
+        <h2 id="token-tracker">8. Token Tracker AI (<code>src/ai/token-tracker.js</code>)</h2>
+        <p>Mencatat setiap request AI di localStorage (<code>mini-openscad-ai-stats</code>) untuk rate limit dan estimasi biaya.</p>
+
+        <div class="fn">
+          <div class="fn-head"><span class="fn-name">recordRequest(opts)</span><span class="fn-kind kind-fn">function</span></div>
+          <div class="fn-sig">({ inputTokens, outputTokens, model }) → void</div>
+          <div class="fn-desc">Mencatat satu request AI: timestamp, token in/out, biaya estimasi, dan breakdown per hari.</div>
+        </div>
+
+        <div class="fn">
+          <div class="fn-head"><span class="fn-name">getRateLimitCounts()</span><span class="fn-kind kind-fn">function</span></div>
+          <div class="fn-sig">() → { perMin, perHour, limits }</div>
+          <div class="fn-desc">Menghitung jumlah request dalam window 60 detik dan 3600 detik (rolling window).</div>
+        </div>
+
+        <div class="fn">
+          <div class="fn-head"><span class="fn-name">snapshot()</span><span class="fn-kind kind-fn">function</span></div>
+          <div class="fn-sig">() → { rate, total, byDay }</div>
+          <div class="fn-desc">Mengembalikan ringkasan statistik untuk ditampilkan di UI (token-widget).</div>
+        </div>
+
+        <div class="fn">
+          <div class="fn-head"><span class="fn-name">resetStats()</span><span class="fn-kind kind-fn">function</span></div>
+          <div class="fn-desc">Mengatur ulang semua statistik AI ke default.</div>
+        </div>
+
+        <div class="callout info">
+          <b>Rate limit:</b> 60 request/menit, 1800 request/jam (TokenHarbor free tier). Penyimpanan rolling window 60s / 3600s; breakdown per hari (30 hari terakhir).
+        </div>
+
+        <h2 id="pwa">9. PWA & Offline (<code>src/app/pwa.js</code>)</h2>
+        <p>Aplikasi terinstall sebagai PWA dengan service worker, tombol install, dan indikator online/offline.</p>
+
+        <div class="fn">
+          <div class="fn-head"><span class="fn-name">initPWA(deps)</span><span class="fn-kind kind-fn">function</span></div>
+          <div class="fn-sig">({ toast, log }) → void</div>
+          <div class="fn-desc">Mendaftarkan service worker (vite-plugin-pwa), menampilkan tombol Install, banner update versi baru, dan indikator online/offline. Cek update SW setiap jam.</div>
+        </div>
+
+        <h2 id="mobile">10. Mobile UI (<code>src/app/mobile-ui.js</code>)</h2>
+        <p>Peningkatan antarmuka untuk layar kecil (≤ 768px).</p>
+
+        <div class="fn">
+          <div class="fn-head"><span class="fn-name">initMobileUI(deps)</span><span class="fn-kind kind-fn">function</span></div>
+          <div class="fn-sig">({ viewer }) → void</div>
+          <div class="fn-desc">Memperbaiki tab bar Code/3D/Console pada mobile. Membuat menu "More" (⋮) yang memindahkan tombol jarang dipakai (Format, Export, Preset, Snippet, dll.) ke dalam panel dropdown.</div>
+        </div>
+
+        <h2 id="import-vector">11. Import SVG/DXF (<code>src/app/import-vector-ui.js</code>)</h2>
+        <p>Konversi file vektor (SVG/DXF) menjadi kode SCAD yang bisa dimasukkan ke editor.</p>
+
+        <div class="fn">
+          <div class="fn-head"><span class="fn-name">initImportVectorUI(deps)</span><span class="fn-kind kind-fn">function</span></div>
+          <div class="fn-sig">({ editor, tabManager, saveNow, doRender }) → { open, processFile }</div>
+          <div class="fn-desc">Membuka modal import, memproses file SVG/DXF melalui <code>svg-to-polygon.js</code> / <code>dxf-to-polygon.js</code>, lalu mengonversi hasilnya ke kode SCAD dengan <code>vector-to-code.js</code>.</div>
+        </div>
+
+        <div class="fn">
+          <div class="fn-head"><span class="fn-name">svgToPolygon(svgText)</span><span class="fn-kind kind-fn">function</span></div>
+          <div class="fn-sig">(svgText: string) → Polygon[]</div>
+          <div class="fn-desc">Mengekstrak kontur poligon dari teks SVG.</div>
+        </div>
+
+        <div class="fn">
+          <div class="fn-head"><span class="fn-name">dxfToPolygon(dxfText)</span><span class="fn-kind kind-fn">function</span></div>
+          <div class="fn-sig">(dxfText: string) → Polygon[]</div>
+          <div class="fn-desc">Mengekstrak kontur poligon dari teks DXF.</div>
+        </div>
+
+        <div class="fn">
+          <div class="fn-head"><span class="fn-name">vectorToCode(polygons)</span><span class="fn-kind kind-fn">function</span></div>
+          <div class="fn-sig">(polygons: Polygon[]) → string</div>
+          <div class="fn-desc">Mengonversi array poligon menjadi kode SCAD (<code>polygon(...)</code>).</div>
         </div>
       </main>
     </div>

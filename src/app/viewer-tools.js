@@ -1,6 +1,7 @@
 import { state } from "../state.js";
 import { toast } from "../ui/status.js";
 import { createDropdown } from "../ui/dropdown.js";
+import { escapeHtml } from "../utils.js";
 
 export function initViewerTools(viewer) {
   /* 1. Fullscreen */
@@ -112,6 +113,126 @@ export function initViewerTools(viewer) {
         toast("🖨️ Merah = Butuh Support (Overhang > 45°)");
       }
     });
+    overlay.appendChild(btn);
+  }
+
+  /* 7.5 Wall Thickness Analyzer */
+  if (overlay) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.id = "btnWallThickness";
+    btn.title = "Wall Thickness Analyzer (FDM)";
+    btn.innerHTML = "🧱";
+    let busy = false;
+
+    const rightEl = document.getElementById("right");
+
+    const legend = document.createElement("div");
+    legend.id = "wallThicknessLegend";
+    legend.className = "hidden";
+    legend.innerHTML = `
+      <div class="wt-head">
+        <span class="wt-title">🧱 Wall Thickness</span>
+        <button class="wt-x" title="Close">✕</button>
+      </div>
+      <div class="wt-body">
+        <div class="wt-stats" id="wtStats"></div>
+        <div class="wt-legend">
+          <div class="wt-legend-row"><span class="wt-swatch" style="background:#ff3030"></span> <b>&lt; 0.8mm</b> — Terlalu tipis</div>
+          <div class="wt-legend-row"><span class="wt-swatch" style="background:#ffaa00"></span> <b>0.8–1.2mm</b> — Marginal</div>
+          <div class="wt-legend-row"><span class="wt-swatch" style="background:#30d060"></span> <b>&gt; 1.2mm</b> — Aman</div>
+          <div class="wt-legend-row"><span class="wt-swatch" style="background:#60a5fa"></span> Tidak terdeteksi (open / &gt;50mm)</div>
+        </div>
+      </div>
+    `;
+    if (rightEl) rightEl.appendChild(legend);
+
+    const wtStatsEl = legend.querySelector("#wtStats");
+    const wtXBtn = legend.querySelector(".wt-x");
+
+    function renderStats(stats) {
+      if (!stats) {
+        wtStatsEl.innerHTML = "";
+        return;
+      }
+      const total = stats.count || 1;
+      const thinPct = ((stats.thinCount / total) * 100).toFixed(1);
+      const marginalPct = ((stats.marginalCount / total) * 100).toFixed(1);
+      wtStatsEl.innerHTML = `
+        <div class="wt-stat"><span>Min</span><b>${stats.min.toFixed(2)} mm</b></div>
+        <div class="wt-stat"><span>Avg</span><b>${stats.avg.toFixed(2)} mm</b></div>
+        <div class="wt-stat"><span>Max</span><b>${stats.max.toFixed(2)} mm</b></div>
+        <div class="wt-stat wt-stat-alert"><span>Terlalu tipis</span><b>${stats.thinCount} (${thinPct}%)</b></div>
+        <div class="wt-stat"><span>Marginal</span><b>${stats.marginalCount} (${marginalPct}%)</b></div>
+      `;
+    }
+
+    btn.addEventListener("click", async () => {
+      if (busy) return;
+      if (!viewer.hasModel()) {
+        toast("⚠ Render model dulu");
+        return;
+      }
+
+      busy = true;
+      btn.disabled = true;
+
+      // Already active? → turn off
+      if (viewer.isWallThicknessActive()) {
+        await viewer.toggleWallThickness();
+        btn.classList.remove("toggle-on");
+        legend.classList.add("hidden");
+        busy = false;
+        btn.disabled = false;
+        return;
+      }
+
+      // Compute
+      toast("🔬 Analyzing wall thickness…");
+      try {
+        const result = await viewer.toggleWallThickness(
+          (meshIdx, meshTotal, done, total) => {
+            if (meshTotal > 1) {
+              toast(`🔬 Mesh ${meshIdx}/${meshTotal} · ${done}/${total}`);
+            } else {
+              toast(`🔬 ${done}/${total}…`);
+            }
+          },
+        );
+        if (result.on) {
+          btn.classList.add("toggle-on");
+          renderStats(result.stats);
+          legend.classList.remove("hidden");
+          const thinPct =
+            result.stats.count > 0
+              ? ((result.stats.thinCount / result.stats.count) * 100).toFixed(1)
+              : "0.0";
+          if (result.stats.thinCount > 0) {
+            toast(
+              `⚠ ${result.stats.thinCount} dinding tipis (${thinPct}%) — lihat merah`,
+            );
+          } else {
+            toast(
+              `✅ Semua dinding tebal (min ${result.stats.min.toFixed(2)}mm)`,
+            );
+          }
+        }
+      } catch (e) {
+        toast("✖ " + e.message);
+      } finally {
+        busy = false;
+        btn.disabled = false;
+      }
+    });
+
+    wtXBtn.addEventListener("click", async () => {
+      if (viewer.isWallThicknessActive()) {
+        await viewer.toggleWallThickness();
+        btn.classList.remove("toggle-on");
+      }
+      legend.classList.add("hidden");
+    });
+
     overlay.appendChild(btn);
   }
 

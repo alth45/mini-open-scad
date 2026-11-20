@@ -4,6 +4,8 @@
     <meta charset="utf-8" />
     <title>Peta Ketergantungan — Mini OpenSCAD Docs</title>
     <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>mermaid.initialize({ startOnLoad: true, theme: 'dark' });</script>
   </head>
   <body>
     <div class="layout">
@@ -43,45 +45,68 @@
           berarti "mengimpor/menggunakan".
         </p>
 
-        <div class="flow">
-          <span class="hl">main.js</span> (Orkestrator) ├─
-          <span class="hl">app/shortcuts.js</span> (Mendaftarkan event keyboard
-          global) ├─ <span class="hl">app/viewer-tools.js</span> (Kamera,
-          Section, Measure, Dims, Lighting) ├─
-          <span class="hl">app/capture.js</span> (PNG, Turntable GIF, Param
-          Anim) ├─ <span class="hl">app/export-ui.js</span> (Dropdown Export,
-          Save ZIP) │ ├─ <span class="hl">viewer/scene.js</span> (Class Viewer:
-          WebGL, Lights, Raycaster) ├─
-          <span class="hl">ui/editor.js</span> (Textarea overlay, folding,
-          multi-cursor) ├─ <span class="hl">ui/params-panel.js</span> (Render
-          slider @param) ├─
-          <span class="hl">ui/tabbar.js, home.js, etc</span> (Modal & antarmuka)
-          │ └─ <span class="hl">worker/worker-client.js</span> (Jembatan ke
-          Worker)
-        </div>
+        <div class="mermaid">
+flowchart TB
+    subgraph Main["💻 Main Thread (UI & Orkestrasi)"]
+        direction TB
+        main["main.js<br/>Orkestrator"]
+        shortcuts["app/shortcuts.js<br/>Event Keyboard Global"]
+        viewerTools["app/viewer-tools.js<br/>Kamera, Section, Measure, Dims, Lighting"]
+        capture["app/capture.js<br/>PNG, Turntable GIF, Param Anim"]
+        exportUI["app/export-ui.js<br/>Dropdown Export, Save ZIP"]
+        viewer["viewer/scene.js<br/>Class Viewer: WebGL, Lights, Raycaster"]
+        editor["ui/editor.js<br/>Textarea Overlay, Folding, Multi-cursor"]
+        params["ui/params-panel.js<br/>Render Slider @param"]
+        tabbar["ui/tabbar.js, home.js, dll<br/>Modal & Antarmuka"]
+        workerClient["worker/worker-client.js<br/>Jembatan ke Worker"]
+    end
+
+    main --> shortcuts
+    main --> viewerTools
+    main --> capture
+    main --> exportUI
+    main --> viewer
+    main --> editor
+    main --> params
+    main --> tabbar
+    main --> workerClient
+
+    style Main fill:#e3f2fd,stroke:#1976d2,color:#000
+</div>
 
         <h2 id="worker-thread">2. Worker Thread (Engine CAD)</h2>
         <p>
           Alur yang berjalan di <i>background</i> saat tombol Render ditekan.
         </p>
 
-        <div class="flow">
-          <span class="hl">worker/eval-worker.js</span> (Menerima postMessage)
-          ├─ <span class="hl">evaluator/manifold-engine.js</span> (Memuat WASM
-          Manifold) ├─ <span class="hl">viewer/model.js</span> (buildModel) │ ├─
-          <span class="hl">core/tokenizer.js</span> (String → Token) │ ├─
-          <span class="hl">core/parser.js</span> (Token → AST) │ ├─
-          <span class="hl">evaluator/index.js</span> (AST → Mesh/Shape) │ │ ├─
-          <span class="hl">evaluator/builtins.js</span> (cube, difference,
-          linear_extrude) │ │ │ ├─
-          <span class="hl">evaluator/manifold-engine.js</span> (CSG 3D/2D &
-          Hull) │ │ │ └─ <span class="hl">evaluator/geometry.js</span> (Helper
-          Three.js) │ │ └─ <span class="hl">evaluator/functions.js</span> (sin,
-          cos, rands, cross, dll) │ └─
-          <span class="hl">viewer/model.js</span> (serializeModel →
-          transferables) └─ postMessage(data, transferables) → Kembali ke Main
-          Thread
-        </div>
+        <div class="mermaid">
+flowchart TB
+    subgraph Worker["⚙️ Worker Thread (Engine CAD)"]
+        direction TB
+        evalWorker["worker/eval-worker.js<br/>Penerima postMessage"]
+        manifoldEngine["evaluator/manifold-engine.js<br/>Memuat WASM Manifold"]
+        modelJs["viewer/model.js<br/>buildModel + serializeModel"]
+        tokenizer["core/tokenizer.js<br/>String → Token"]
+        parser["core/parser.js<br/>Token → AST"]
+        evaluator["evaluator/index.js<br/>AST → Mesh / Shape"]
+        builtins["evaluator/builtins.js<br/>cube, difference, linear_extrude"]
+        geometry["evaluator/geometry.js<br/>Helper Three.js"]
+        functions["evaluator/functions.js<br/>sin, cos, rands, cross, dll"]
+    end
+
+    evalWorker --> manifoldEngine
+    evalWorker --> modelJs
+    modelJs --> tokenizer
+    modelJs --> parser
+    modelJs --> evaluator
+    evaluator --> builtins
+    builtins --> manifoldEngine
+    builtins --> geometry
+    evaluator --> functions
+    modelJs -->|"postMessage(data, transferables)<br/>→ Kembali ke Main Thread"| evalWorker
+
+    style Worker fill:#f3e5f5,stroke:#8e24aa,color:#000
+</div>
 
         <h2 id="app-modules">3. Peta Modul UI (<code>src/app/</code>)</h2>
         <p>
@@ -126,6 +151,31 @@
               <td>export.js, export-2d.js, project-backup.js</td>
               <td>Membangun dropdown dan memanggil fungsi download.</td>
             </tr>
+            <tr>
+              <td><code>cloud-backup-ui.js</code></td>
+              <td>cloud-storage.js, preset-store.js, tabManager</td>
+              <td>Panel backup/restore Cloudinary per tab.</td>
+            </tr>
+            <tr>
+              <td><code>pwa.js</code></td>
+              <td>vite-plugin-pwa, toast, log</td>
+              <td>Service worker, install prompt, offline indicator.</td>
+            </tr>
+            <tr>
+              <td><code>mobile-ui.js</code></td>
+              <td>viewer, DOM tabbar</td>
+              <td>Menu More (⋮) untuk layar ≤ 768px.</td>
+            </tr>
+            <tr>
+              <td><code>preset-ui.js</code></td>
+              <td>preset-store.js, tabManager, editor</td>
+              <td>Panel preset parameter per tab.</td>
+            </tr>
+            <tr>
+              <td><code>import-vector-ui.js</code></td>
+              <td>svg-to-polygon.js, dxf-to-polygon.js, vector-to-code.js</td>
+              <td>Import SVG/DXF → kode SCAD.</td>
+            </tr>
           </tbody>
         </table>
 
@@ -135,22 +185,42 @@
           Slicer / AutoCAD.
         </p>
 
-        <div class="flow">
-          <span class="hl">app/export-ui.js</span> (Klik User) │ ├─
-          <b>Export 3D</b> (STL/3MF/OBJ/GLB/PLY) │ └─
-          <span class="hl">export.js</span> │ ├─ memanggil
-          <code>viewer.modelRoot</code> (Mesh dari Manifold) │ ├─ menggunakan
-          <code>mergeVertices</code> (khusus 3MF) │ └─ memicu
-          <code>downloadBlob()</code> │ ├─ <b>Export 2D</b> (SVG/DXF) │ └─
-          <span class="hl">export-2d.js</span> │ ├─ membaca
-          <code>state.last2dShapes</code> (Kontur 2D hasil ekstraksi Manifold) │
-          └─ menulis string XML (SVG) atau string DXF R12 │ └─
-          <b>Save Project</b> (.zip) └─
-          <span class="hl">project-backup.js</span> ├─ membaca
-          <code>tabManager.active</code> ├─ mengambil file STL dari
-          <code>files/file-store.js</code> (IndexedDB) └─ membungkusnya dengan
-          <code>fflate</code> (zipSync)
-        </div>
+        <div class="mermaid">
+flowchart TB
+    subgraph Export["📤 Alur Data Export (3D & 2D)"]
+        direction TB
+        exportUI["app/export-ui.js<br/>Klik User"]
+        export3D["Export 3D<br/>STL / 3MF / OBJ / GLB / PLY"]
+        exportJs["export.js<br/>Processor Mesh"]
+        modelRoot["viewer.modelRoot<br/>Mesh dari Manifold"]
+        mergeVertices["mergeVertices()<br/>khusus 3MF"]
+        downloadBlob["downloadBlob()<br/>Unduh File"]
+        export2D["Export 2D<br/>SVG / DXF"]
+        export2dJs["export-2d.js<br/>String XML (SVG) atau DXF R12"]
+        last2dShapes["state.last2dShapes<br/>Kontur 2D dari Ekstraksi Manifold"]
+        saveProject["Save Project (.zip)"]
+        projectBackup["project-backup.js<br/>Wrapper ZIP"]
+        tabManager["tabManager.active<br/>Tab Saat Ini"]
+        fileStore["files/file-store.js<br/>STL dari IndexedDB"]
+        fflate["fflate (zipSync)"]
+    end
+
+    exportUI --> export3D
+    export3D --> exportJs
+    exportJs --> modelRoot
+    exportJs --> mergeVertices
+    exportJs --> downloadBlob
+    exportUI --> export2D
+    export2D --> export2dJs
+    export2dJs --> last2dShapes
+    exportUI --> saveProject
+    saveProject --> projectBackup
+    projectBackup --> tabManager
+    projectBackup --> fileStore
+    projectBackup --> fflate
+
+    style Export fill:#fff9c4,stroke:#f9a825,color:#000
+</div>
 
         <div class="callout">
           💡 <b>Selesai!</b> Kamu telah menyelesaikan dokumentasi HTML untuk

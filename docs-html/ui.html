@@ -18,6 +18,7 @@
 <a href="ui.html#tabbar">Tab Bar</a>
 <a href="ui.html#modals">Modals &amp; Dropdown</a>
 <a href="ui.html#others">Find/Replace &amp; Profiler</a>
+<a href="ui.html#ai-tools">AI &amp; File Tools</a>
 </nav>
 </aside>
 <main class="content">
@@ -125,6 +126,18 @@
 <div class="fn">
   <div class="fn-head"><span class="fn-name">createProfilerPanel(panelEl)</span><span class="fn-kind kind-fn">function</span></div>
   <div class="fn-desc">Menampilkan metrik render (Current, History, Hotspots). Sangat membantu developer untuk melihat bagian mana dari kode yang memakan waktu paling lama (misal: operasi <code>difference</code> 500ms).</div>
+</div>
+
+<h2 id="ai-tools">7. AI & File Tools</h2>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">createTokenWidget(containerEl)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-desc">Menampilkan statistik AI (token, biaya, rate limit) dari <code>src/ai/token-tracker.js</code>. Digunakan untuk memantau penggunaan TokenHarbor agar tidak melebihi kuota gratis.</div>
+</div>
+
+<div class="fn">
+  <div class="fn-head"><span class="fn-name">createFilePreview(containerEl, callbacks)</span><span class="fn-kind kind-fn">function</span></div>
+  <div class="fn-desc">Panel pratinjau file untuk impor STL/SCAD. Menampilkan thumbnail dan metadata sebelum file dimasukkan ke editor.</div>
 </div>
 
 </main>

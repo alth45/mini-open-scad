@@ -7,6 +7,11 @@ import {
   formatArea,
   formatWeight,
 } from "./model-stats.js";
+import {
+  computeWallThickness,
+  disposeWallThickness,
+  THRESHOLDS as WALL_THICKNESS_THRESHOLDS,
+} from "./wall-thickness.js";
 
 function disposeObject(obj) {
   if (!obj) return;
@@ -116,6 +121,8 @@ export class Viewer {
     this._lastFpsT = performance.now();
     this._wireframeOn = false;
     this._printabilityOn = false;
+    this._wallThicknessOn = false;
+    this._wallThicknessStats = null;
     this._showExtendedStats = false;
     this._modelStats = null;
 
@@ -848,6 +855,7 @@ export class Viewer {
 
   setModelRoot(newRoot) {
     this._printabilityOn = false;
+    this._disableWallThickness();
     this.scene.remove(this.modelRoot);
     disposeObject(this.modelRoot);
     this.modelRoot = newRoot;
@@ -1444,6 +1452,102 @@ export class Viewer {
     });
 
     return true;
+  }
+
+  /* ============================================================
+     Wall Thickness Analyzer
+     ============================================================ */
+  async toggleWallThickness(onProgress) {
+    if (this._wallThicknessOn) {
+      this._disableWallThickness();
+      return { on: false, stats: null };
+    }
+
+    if (!this.hasModel()) {
+      throw new Error("Render model dulu sebelum analisis");
+    }
+
+    const meshes = [];
+    this.modelRoot.traverse((o) => {
+      if (o.isMesh && o.geometry) meshes.push(o);
+    });
+    if (meshes.length === 0) throw new Error("Tidak ada mesh di model");
+
+    const agg = {
+      min: Infinity,
+      max: 0,
+      avg: 0,
+      count: 0,
+      thinCount: 0,
+      marginalCount: 0,
+      safeCount: 0,
+      openCount: 0,
+      thresholds: WALL_THICKNESS_THRESHOLDS,
+    };
+    let avgSumWeighted = 0;
+
+    try {
+      for (let i = 0; i < meshes.length; i++) {
+        const mesh = meshes[i];
+        if (!mesh.userData.originalMaterial) {
+          mesh.userData.originalMaterial = mesh.material;
+        }
+
+        const stats = await computeWallThickness(mesh, {
+          onProgress: (done, total) =>
+            onProgress?.(i + 1, meshes.length, done, total),
+        });
+
+        if (stats.min < agg.min) agg.min = stats.min;
+        if (stats.max > agg.max) agg.max = stats.max;
+        agg.count += stats.count;
+        agg.thinCount += stats.thinCount;
+        agg.marginalCount += stats.marginalCount;
+        agg.safeCount += stats.safeCount;
+        agg.openCount += stats.openCount;
+        avgSumWeighted += stats.avg * stats.count;
+
+        mesh.material = new THREE.MeshStandardMaterial({
+          vertexColors: true,
+          roughness: 0.55,
+          metalness: 0.12,
+          side: THREE.DoubleSide,
+        });
+      }
+
+      if (agg.count > 0) {
+        agg.avg = avgSumWeighted / agg.count;
+        if (!Number.isFinite(agg.min)) agg.min = 0;
+      }
+
+      this._wallThicknessOn = true;
+      this._wallThicknessStats = agg;
+      return { on: true, stats: agg };
+    } catch (err) {
+      this._disableWallThickness();
+      throw err;
+    }
+  }
+
+  _disableWallThickness() {
+    this._wallThicknessOn = false;
+    this._wallThicknessStats = null;
+    this.modelRoot.traverse((o) => {
+      if (!o.isMesh || !o.geometry) return;
+      if (o.userData.originalMaterial) {
+        o.material = o.userData.originalMaterial;
+        delete o.userData.originalMaterial;
+      }
+      disposeWallThickness(o);
+    });
+  }
+
+  getWallThicknessStats() {
+    return this._wallThicknessStats;
+  }
+
+  isWallThicknessActive() {
+    return this._wallThicknessOn;
   }
 
   togglePrintability() {
