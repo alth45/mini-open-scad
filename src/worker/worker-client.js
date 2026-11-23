@@ -52,7 +52,7 @@ export function createWorkerClient() {
   return {
     isReady: () => isReady,
 
-    async run(code, paramValues, previewMode) {
+    async run(code, paramValues, previewMode, projectTabs = []) {
       initWorker();
 
       if (!isReady) {
@@ -98,6 +98,7 @@ export function createWorkerClient() {
           code,
           paramValues,
           previewMode,
+          projectTabs,
         });
       });
     },

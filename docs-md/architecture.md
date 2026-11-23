@@ -333,21 +333,6 @@ Semua fitur baru **opt-in** dan **tidak memblokir** fitur lama. Kalau user tidak
 
 ---
 
-### 13. Offline-First & Cloud Sync (PWA) ✨
-
-Aplikasi berjalan sepenuhnya offline setelah first load, dengan opsi sinkronisasi cloud berbasis user consent.
-
-| Aspek               | Implementasi                                                          |
-| :------------------ | :-------------------------------------------------------------------- |
-| 📲 PWA              | Service Worker (vite-plugin-pwa) + install prompt + update banner     |
-| 📴 Offline          | Semua aset di-cache; worker + render berjalan tanpa jaringan          |
-| ☁️ Cloud Backup     | Cloudinary unsigned upload — snapshot per tab, index di localStorage  |
-| 🔐 Consent          | Backup tidak otomatis ke cloud tanpa aksi user; tidak ada secret di bundle |
-| 📱 Mobile           | Tab bar diperbaiki + menu "More" (⋮) untuk layar ≤ 768px              |
-| 🪙 Token tracking   | Rate limit AI (60/menit, 1800/jam) + biaya per model disimpan lokal   |
-
----
-
 ### 12. User Consent for Destructive Actions (Fase 6) ✨
 
 AI dan tools **tidak pernah mengganti kode tanpa review**.
@@ -360,6 +345,21 @@ AI dan tools **tidak pernah mengganti kode tanpa review**.
 | **AI Generate**        | Tombol **New tab** (primary) sebelum **Replace current**                                  |
 | **Image delete**       | `confirm()`                                                                               |
 | **Undo friendly**      | Semua replacement via `editor.setValue()` (recordHistory=true) → **Ctrl+Z** mengembalikan |
+
+---
+
+### 13. Offline-First & Cloud Sync (PWA) ✨
+
+Aplikasi berjalan sepenuhnya offline setelah first load, dengan opsi sinkronisasi cloud berbasis user consent.
+
+| Aspek               | Implementasi                                                          |
+| :------------------ | :-------------------------------------------------------------------- |
+| 📲 PWA              | Service Worker (vite-plugin-pwa) + install prompt + update banner     |
+| 📴 Offline          | Semua aset di-cache; worker + render berjalan tanpa jaringan          |
+| ☁️ Cloud Backup     | Cloudinary unsigned upload — snapshot per tab, index di localStorage  |
+| 🔐 Consent          | Backup tidak otomatis ke cloud tanpa aksi user; tidak ada secret di bundle |
+| 📱 Mobile           | Tab bar diperbaiki + menu "More" (⋮) untuk layar ≤ 768px              |
+| 🪙 Token tracking   | Rate limit AI (60/menit, 1800/jam) + biaya per model disimpan lokal   |
 
 ---
 

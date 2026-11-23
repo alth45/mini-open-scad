@@ -1,0 +1,208 @@
+/* ---------- PROJECT SWITCHER ---------- */
+#btnProject {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--btn-bg);
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+}
+#btnProject:hover {
+  background: var(--btn-hover);
+  border-color: var(--accent);
+}
+#btnProject.toggle-on {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: var(--accent);
+  color: var(--accent-hi);
+}
+.pm-btn-label {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pm-chevron {
+  font-size: 9px;
+  opacity: 0.7;
+  transition: transform 0.15s;
+}
+#btnProject.toggle-on .pm-chevron {
+  transform: rotate(180deg);
+  opacity: 1;
+}
+
+/* ---------- PROJECT DROPDOWN ---------- */
+.project-menu {
+  position: fixed;
+  z-index: 750;
+  width: 300px;
+  max-width: calc(100vw - 16px);
+  max-height: 400px;
+  background: var(--panel);
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.project-menu.hidden {
+  display: none;
+}
+
+.pm-title {
+  padding: 8px 12px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-2);
+  flex-shrink: 0;
+}
+
+.pm-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 4px;
+  min-height: 0;
+}
+.pm-list::-webkit-scrollbar {
+  width: 6px;
+}
+.pm-list::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 3px;
+}
+
+.pm-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--text);
+  font-size: 12.5px;
+}
+.pm-item:hover {
+  background: rgba(59, 130, 246, 0.12);
+}
+.pm-item.active {
+  background: rgba(59, 130, 246, 0.22);
+  color: var(--accent-hi);
+  font-weight: 600;
+}
+.pm-item-icon {
+  width: 14px;
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 11px;
+}
+.pm-item-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pm-item-count {
+  font: 10px var(--mono);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1px 6px;
+  border-radius: 8px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.pm-item.active .pm-item-count {
+  background: rgba(59, 130, 246, 0.3);
+  color: var(--accent-hi);
+}
+.pm-rename,
+.pm-delete {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 3px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.pm-rename:hover {
+  background: rgba(59, 130, 246, 0.2);
+  color: var(--accent-hi);
+}
+.pm-delete:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.pm-footer {
+  flex-shrink: 0;
+  padding: 8px;
+  border-top: 1px solid var(--border);
+  background: var(--panel-2);
+}
+.pm-new {
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  border-radius: 5px;
+  color: var(--accent-hi);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pm-new:hover {
+  background: rgba(59, 130, 246, 0.25);
+}
+
+/* Light theme */
+[data-theme="light"] .project-menu {
+  background: #fff;
+  border-color: #c6c6ce;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.15);
+}
+[data-theme="light"] .pm-item.active {
+  background: rgba(37, 99, 235, 0.15);
+  color: #2563eb;
+}
+[data-theme="light"] .pm-item-count {
+  background: rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] #btnProject.toggle-on {
+  background: rgba(37, 99, 235, 0.12);
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  #btnProject {
+    padding: 5px 8px;
+    font-size: 11px;
+    max-width: 140px;
+  }
+  .pm-btn-label {
+    max-width: 100px;
+  }
+}

@@ -22,6 +22,7 @@ import { initExportUI } from "./app/export-ui.js";
 import { initSnippetUI } from "./app/snippet-ui.js";
 import { initImportVectorUI } from "./app/import-vector-ui.js";
 import { initPresetUI } from "./app/preset-ui.js";
+import { initProjectUI } from "./app/project-ui.js";
 import { setupEditor } from "./app/editor-setup.js";
 import { setupPreview } from "./app/preview-setup.js";
 import { setupTabs } from "./app/tabs-setup.js";
@@ -114,16 +115,20 @@ renderController = initRenderController({
   btnParams,
 });
 
+let projectUI = null;
+
 const { tabManager: tm, addTab } = setupTabs({
   editor,
   getRenderController: () => renderController,
   updateAutoBtn,
   onTabActivated: (tab) => {
-    // presetUI sudah initialized sebelum bootApp → aman pakai optional chaining
     if (tab && presetUI?.refreshForTab) presetUI.refreshForTab(tab.id);
   },
+  onProjectsChange: () => {
+    projectUI?.refresh?.();
+  },
 });
-tabManager = tm; // ← FIX: baris ini yang hilang!
+tabManager = tm;
 
 /* ============================================================
    Wiring UI Modules
@@ -201,6 +206,13 @@ initExportUI({ viewer, editor, tabManager });
 initCloudBackupUI({
   tabManager,
   editor,
+  saveNow: renderController.saveNow,
+  doRender: renderController.doRender,
+});
+
+// ✨ Project UI
+projectUI = initProjectUI({
+  tabManager,
   saveNow: renderController.saveNow,
   doRender: renderController.doRender,
 });

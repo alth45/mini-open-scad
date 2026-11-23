@@ -5,15 +5,21 @@ import { DEFAULT_CODE } from "../config.js";
 import { toast } from "../ui/status.js";
 
 export function setupTabs(deps) {
-  const { editor, getRenderController, updateAutoBtn } = deps;
+  const {
+    editor,
+    getRenderController,
+    updateAutoBtn,
+    onTabActivated,
+    onProjectsChange,
+  } = deps;
   const tabBar = createTabBar(document.getElementById("tabbar-desktop"));
   let tabManager = null;
 
   function addTab() {
-    const used = new Set(tabManager.tabs.map((t) => t.name));
-    let n = 1;
-    while (used.has("Project " + n)) n++;
-    tabManager.add(createTab("Project " + n, DEFAULT_CODE));
+    const used = new Set(tabManager.visibleTabs.map((t) => t.name));
+    let n = 2;
+    while (used.has(`file${n}.scad`)) n++;
+    tabManager.add(createTab(`file${n}.scad`, DEFAULT_CODE));
     getRenderController()?.saveNow();
   }
 
@@ -25,7 +31,8 @@ export function setupTabs(deps) {
           tabManager.setActive(id);
         },
         onClose: (id) => {
-          if (!tabManager.remove(id)) toast("Tidak bisa close tab terakhir");
+          if (!tabManager.remove(id))
+            toast("Tidak bisa close tab terakhir di project ini");
           else getRenderController()?.saveNow();
         },
         onAdd: addTab,
@@ -43,6 +50,10 @@ export function setupTabs(deps) {
       updateAutoBtn();
       getRenderController()?.refreshParams();
       getRenderController()?.doRender();
+      onTabActivated?.(tab);
+    },
+    onProjectsChange: (projects, activeProjectId) => {
+      onProjectsChange?.(projects, activeProjectId);
     },
   });
 

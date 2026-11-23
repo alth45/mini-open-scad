@@ -47,7 +47,10 @@ export function initRenderController(deps) {
 
     // 1. Save ke localStorage (primary, offline-ready)
     if (tm) {
-      saveTabs(tm.tabs, tm.activeId, store.getState().previewMode);
+      saveTabs({
+        ...tm.toStorageData(),
+        previewMode: store.getState().previewMode,
+      });
     }
 
     // 2. Cloudinary backup (debounced 10s, di background)
@@ -117,10 +120,16 @@ export function initRenderController(deps) {
       let result,
         workerRoundtrip = null;
       if (workerClient) {
+        // ✨ Build projectTabs — semua tab lain di project yang sama
+        const tm = getTabManager();
+        const projectTabs = (tm?.visibleTabs || [])
+          .filter((t) => t.id !== tm?.activeId)
+          .map((t) => ({ name: t.name, code: t.code }));
         const data = await workerClient.run(
           code,
           currentState.paramValues,
           currentState.previewMode,
+          projectTabs,
         );
         workerRoundtrip = data.workerRoundtrip ?? null;
         const tDeser = performance.now();

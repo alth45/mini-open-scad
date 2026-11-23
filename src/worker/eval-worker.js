@@ -76,7 +76,7 @@ self.onmessage = async (e) => {
     return;
   }
 
-  const { code, paramValues, previewMode, requestId } = msg;
+  const { code, paramValues, previewMode, requestId, projectTabs = [] } = msg;
   currentRequestId = requestId;
   cancelFlag = false;
 
@@ -95,6 +95,17 @@ self.onmessage = async (e) => {
 
     const scadCache = new Map();
     await loadScadTree(code, scadCache);
+
+    // ✨ Merge project tabs (file dari project yang sama) — override IDB
+    for (const pt of projectTabs) {
+      if (!pt.name || typeof pt.code !== "string") continue;
+      try {
+        const innerAst = new Parser(tokenize(pt.code)).parseProgram();
+        scadCache.set(pt.name, { ast: innerAst, error: null });
+      } catch (e) {
+        scadCache.set(pt.name, { ast: null, error: e.message });
+      }
+    }
 
     // Gunakan cancelChecker agar loop bisa berhenti jika di-cancel
     const isCancelled = () => cancelFlag || currentRequestId !== requestId;
